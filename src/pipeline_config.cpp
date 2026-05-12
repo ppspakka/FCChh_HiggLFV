@@ -18,19 +18,10 @@ std::unique_ptr<ISelection> makeSelectionByName(const std::string& name) {
     if (key == "empty_selection") return std::make_unique<EmptySelection>();
     if (key == "finalstate_nocut") return std::make_unique<FinalState_NoCut>();
     if (key == "lepton_selection") return std::make_unique<LeptonSelection>();
-    if (key == "z_candidate_selection") return std::make_unique<ZCandidateSelection>();
-    if (key == "z_to_ll") return std::make_unique<ZToLLSelection>();
-    if (key == "h_to_mutau_e") return std::make_unique<HToMuTauESelection>();
-    if (key == "h_to_etau_mu") return std::make_unique<HToETauMuSelection>();
-    if (key == "met_e_dphi") return std::make_unique<METEDphiSelection>();
-    if (key == "met_mu_dphi") return std::make_unique<METMuDphiSelection>();
-    if (key == "recoil_mass_selection") return std::make_unique<RecoilMassSelection>();
-    if (key == "h_candidate_selection") return std::make_unique<HCandidateSelection>();
-    if (key == "h_to_mu_e") return std::make_unique<HToMuESelection>();
-    if (key == "pt_z_candidate_selection") return std::make_unique<PT_ZCandidateSelection>();
-    if (key == "modified_z_candidate_selection") return std::make_unique<Modified_ZCandidateSelection>();
-    if (key == "no_ptmin_z_candidate_selection") return std::make_unique<NoPTMin_ZCandidateSelection>();
-
+    if (key == "jet_veto") return std::make_unique<JetVeto>();
+    if (key == "jet_categorization") return std::make_unique<JetCategorization>();
+    if (key == "lepton_pt_cut") return std::make_unique<LeptonPTCut>();
+    if (key == "deltaphi_met_lepton") return std::make_unique<DeltaPhiMETLepton>();
     return nullptr;
 }
 
@@ -82,17 +73,27 @@ bool loadPipelineConfig(const std::string& filepath, PipelineConfig& out) {
                 }
             }
         };
-        parseParam("lepton_pt_min", cfg.params.lepton_pt_min);
-        parseParam("z_mass", cfg.params.z_mass);
-        parseParam("zl_pt_min", cfg.params.zl_pt_min);
-        parseParam("z_mass_window_upper", cfg.params.z_mass_window_upper);
-        parseParam("z_mass_window_lower", cfg.params.z_mass_window_lower);
+        // parseParam("lepton_pt_min", cfg.params.lepton_pt_min);
+        // parseParam("z_mass", cfg.params.z_mass);
+        // parseParam("zl_pt_min", cfg.params.zl_pt_min);
+        // parseParam("z_mass_window_upper", cfg.params.z_mass_window_upper);
+        // parseParam("z_mass_window_lower", cfg.params.z_mass_window_lower);
+        // parseParam("mu_pt_min", cfg.params.mu_pt_min);
+        // parseParam("e_pt_min", cfg.params.e_pt_min);
+        // parseParam("max_dphi_e_met", cfg.params.max_dphi_e_met);
+        // parseParam("max_dphi_mu_met", cfg.params.max_dphi_mu_met);
+        // parseParam("mode", cfg.params.mode);
+        // parseParam("mcol_min", cfg.params.mcol_min);
+        parseParam("mode", cfg.params.mode);
         parseParam("mu_pt_min", cfg.params.mu_pt_min);
         parseParam("e_pt_min", cfg.params.e_pt_min);
-        parseParam("max_dphi_e_met", cfg.params.max_dphi_e_met);
-        parseParam("max_dphi_mu_met", cfg.params.max_dphi_mu_met);
-        parseParam("mode", cfg.params.mode);
-        parseParam("mcol_min", cfg.params.mcol_min);
+        parseParam("min_dr_e_mu", cfg.params.min_dr_e_mu);
+        parseParam("min_dphi_e_mu", cfg.params.min_dphi_e_mu);
+        parseParam("jet_pt_min", cfg.params.jet_pt_min);
+        parseParam("n_jet", cfg.params.n_jet);
+        parseParam("e_pt_cut", cfg.params.e_pt_cut);
+        parseParam("mu_pt_cut", cfg.params.mu_pt_cut);
+        parseParam("max_dphi_lep_met", cfg.params.max_dphi_lep_met);
 
     }
 
@@ -148,136 +149,7 @@ std::vector<HistogramManager::VarSpec> Variables::getDefault() {
         "n_muons", "Number of muons;N_{#mu};Events", 6, -0.5, 5.5,
         [](const Event& evt, const Meta&) -> double { return evt.d ? (double)evt.d->Muon_size : std::numeric_limits<double>::quiet_NaN(); }
     });
-    vars.push_back({
-        "z_mass", "M_{ll} (GeV);M_{ll} [GeV];Events", 60, 60.0, 120.0,
-        [](const Event&, const Meta& m) -> double { return m.z_mass; }
-    });
-    vars.push_back({
-        "z_mass_diff", "|M_{ll}-M_{Z}| (GeV);|M_{ll}-M_{Z}| [GeV];Events", 50, -25.0, 25.0,
-        [](const Event&, const Meta& m) -> double { return m.z_mass_diff; }
-    });
-    vars.push_back({
-        "h_mu_pt", "p_{T}(#mu) (GeV);p_{T}(#mu) [GeV];Events", 50, 0.0, 100.0,
-        [](const Event&, const Meta& m) -> double { return m.h_mu_pt; }
-    });
-    vars.push_back({
-        "h_e_pt", "p_{T}(e) (GeV);p_{T}(e) [GeV];Events", 50, 0.0, 100.0,
-        [](const Event&, const Meta& m) -> double { return m.h_e_pt; }
-    });
-    vars.push_back({
-        "dphi_e_met", "|#Delta#phi(e,MET)|;|#Delta#phi|;Events", 64, 0.0, 3.2,
-        [](const Event&, const Meta& m) -> double { return m.dphi_e_met; }
-    });
-    vars.push_back({
-        "dphi_mu_met", "|#Delta#phi(#mu,MET)|;|#Delta#phi|;Events", 64, 0.0, 3.2,
-        [](const Event&, const Meta& m) -> double { return m.dphi_mu_met; }
-    });
-    vars.push_back({
-        "dphi_mu_e", "|#Delta#phi(#mu,e)|;|#Delta#phi|;Events", 64, 0.0, 3.2,
-        [](const Event&, const Meta& m) -> double { return m.dphi_mu_e; }
-    });
-    vars.push_back({
-        "m_collinear", "Collinear mass (GeV);M_{collinear} [GeV];Events", 250, 0.0, 250,
-        [](const Event&, const Meta& m) -> double { return m.m_collinear; }
-    });
-    vars.push_back({
-        "m_transverse_e_fine", "Transverse mass (e) (GeV);M_{T}(e) [GeV];Events", 300, 0.01, 3.01,
-        [](const Event&, const Meta& m) -> double { return m.m_transverse_e; }
-    });
-    vars.push_back({
-        "m_transverse_mu_fine", "Transverse mass (#mu) (GeV);M_{T}(#mu) [GeV];Events", 300, 0.01, 3.01,
-        [](const Event&, const Meta& m) -> double { return m.m_transverse_mu; }
-    });
 
-    // rough transverse mass histograms
-    vars.push_back({
-        "m_transverse_e", "Transverse mass (e) (GeV);M_{T}(e) [GeV];Events", 120, 0.0, 120.0,
-        [](const Event&, const Meta& m) -> double { return m.m_transverse_e; }
-    });
-    vars.push_back({
-        "m_transverse_mu", "Transverse mass (#mu) (GeV);M_{T}(#mu) [GeV];Events", 120, 0.0, 120.0,
-        [](const Event&, const Meta& m) -> double { return m.m_transverse_mu; }
-    });
-    vars.push_back({
-        "deltaR_mu_e", "#DeltaR(#mu,e);#DeltaR;Events", 60, 0.0, 6.0,
-        [](const Event&, const Meta& m) -> double { return m.deltaR_mu_e; }
-    });
-    vars.push_back({
-        "m_recoil", "Recoil mass (GeV);M_{recoil} [GeV];Events", 250, 0.5, 250.5,
-        [](const Event&, const Meta& m) -> double { return m.m_recoil; }
-    });
-
-    // additional variables for Z and H candidates
-    vars.push_back({
-        "m_z1", "M_{Z1} (GeV);M_{Z1} [GeV];Events", 200, 0.5, 200.5,
-        [](const Event&, const Meta& m) -> double { return m.m_z1; }
-    });
-    vars.push_back({
-        "m_z2", "M_{Z2} (GeV);M_{Z2} [GeV];Events", 200, 0.5, 200.5,
-        [](const Event&, const Meta& m) -> double { return m.m_z2; }
-    });
-    vars.push_back({
-        "m_h1", "M_{H1} (GeV);M_{H1} [GeV];Events", 250, 0.5, 250.5,
-        [](const Event&, const Meta& m) -> double { return m.m_h1; }
-    });
-    vars.push_back({
-        "m_h2", "M_{H2} (GeV);M_{H2} [GeV];Events", 250, 0.5, 250.5,
-        [](const Event&, const Meta& m) -> double { return m.m_h2; }
-    });
-    vars.push_back({
-        "h_mu_boosted_pt", "Boosted p_{T}(#mu) (GeV);p_{T}(#mu) [GeV];Events", 50, 0.0, 100.0,
-        [](const Event&, const Meta& m) -> double { return m.h_mu_boosted_pt; }
-    });
-    vars.push_back({
-        "h_e_boosted_pt", "Boosted p_{T}(e) (GeV);p_{T}(e) [GeV];Events", 50, 0.0, 100.0,
-        [](const Event&, const Meta& m) -> double { return m.h_e_boosted_pt; }
-    });
-
-    vars.push_back({
-        "h_e_d0", "|D0(e)| (Unknow unit);|D0(e)| [Unknow Unit];Events", 100, 0.0, 0.1,
-        [](const Event&, const Meta& m) -> double { return m.h_e_d0; }
-    });
-
-    vars.push_back({
-        "h_e_dz", "|DZ(e)| (Unknow unit);|DZ(e)| [Unknow Unit];Events", 100, 0.0, 0.5,
-        [](const Event&, const Meta& m) -> double { return m.h_e_dz; }
-    });
-
-    vars.push_back({
-        "h_mu_d0", "|D0(#mu)| (Unknow unit);|D0(#mu)| [Unknow Unit];Events", 100, 0.0, 0.1,
-        [](const Event&, const Meta& m) -> double { return m.h_mu_d0; }
-    });
-
-    vars.push_back({
-        "h_mu_dz", "|DZ(#mu)| (Unknow unit);|DZ(#mu)| [Unknow Unit];Events", 100, 0.0, 0.5,
-        [](const Event&, const Meta& m) -> double { return m.h_mu_dz; }
-    });
-
-    // Recoil mass related variables
-    // highest recoil mass pair
-    vars.push_back({
-        "recoil_mass_1", "Recoil mass 1 (GeV);M_{recoil 1} [GeV];Events", 250, 0.5, 250.5,
-        [](const Event&, const Meta& m) -> double { return m.m_recoil1; }
-    });
-    // second highest recoil mass pair
-    vars.push_back({
-        "recoil_mass_2", "Recoil mass 2 (GeV);M_{recoil 2} [GeV];Events", 250, 0.5, 250.5,
-        [](const Event&, const Meta& m) -> double { return m.m_recoil2; }
-    });
-
-    // invariant mass of 3 objects (2l from H + MET)
-    vars.push_back({
-        "m_h_invariant_show", "Invariant mass of 3 objects (GeV);M_{H inv} [GeV];Events", 250, 0.5, 250.5,
-        [](const Event&, const Meta& m) -> double { return m.m_h_invariant; }
-    });
-    vars.push_back({
-        "m_h_invariant_count", "Invariant mass of 3 objects (GeV);M_{H inv} [GeV];Events", 250, 0, 250,
-        [](const Event&, const Meta& m) -> double { return m.m_h_invariant; }
-    });
-    vars.push_back({
-        "MET", "Missing Transverse Energy (GeV);MET [GeV];Events", 100, 0.0, 100.0,
-        [](const Event&, const Meta& m) -> double { return m.MET; }
-    });
 
     return vars;
 }
@@ -286,151 +158,13 @@ std::vector<HistogramManager::VarSpec> Variables::getDefault() {
 std::vector<HistogramManager::Var2DSpec> Variables::getDefault2D() {
     std::vector<HistogramManager::Var2DSpec> vars2d;
     // Example correlations using existing Meta fields
-    vars2d.push_back({
-        "mZ_vs_mH1", "M_{Z1} vs M_{H1};M_{Z1} [GeV];M_{H1} [GeV]",
-        100, 0.5, 250.5,
-        100, 0.5, 250.5,
-        [](const Event&, const Meta& m) -> double { return m.m_z1; },
-        [](const Event&, const Meta& m) -> double { return m.m_h1; }
-    });
-    vars2d.push_back({
-        "mZ2_vs_mH2", "M_{Z2} vs M_{H2};M_{Z2} [GeV];M_{H2} [GeV]",
-        100, 0.5, 250.5,
-        100, 0.5, 250.5,
-        [](const Event&, const Meta& m) -> double { return m.m_z2; },
-        [](const Event&, const Meta& m) -> double { return m.m_h2; }
-    });
-    vars2d.push_back({
-        "pt_mu_vs_pt_e", "p_{T}(#mu) vs p_{T}(e);p_{T}(#mu) [GeV];p_{T}(e) [GeV]",
-        50, 0.0, 100.0,
-        50, 0.0, 100.0,
-        [](const Event&, const Meta& m) -> double { return m.h_mu_pt; },
-        [](const Event&, const Meta& m) -> double { return m.h_e_pt; }
-    });
-
-    // Add all 1D hist + col mass
-    vars2d.push_back({
-        "h_mu_pt_vs_m_collinear", "p_{T}(#mu) vs M_{collinear};p_{T}(#mu) [GeV];M_{collinear} [GeV]",
-        50, 0.0, 100.0,
-        250, 0.5, 250.5,
-        [](const Event&, const Meta& m) -> double { return m.h_mu_pt; },
-        [](const Event&, const Meta& m) -> double { return m.m_collinear; }
-    });
-    vars2d.push_back({
-        "h_e_pt_vs_m_collinear", "p_{T}(e) vs M_{collinear};p_{T}(e) [GeV];M_{collinear} [GeV]",
-        50, 0.0, 100.0,
-        250, 0.5, 250.5,
-        [](const Event&, const Meta& m) -> double { return m.h_e_pt; },
-        [](const Event&, const Meta& m) -> double { return m.m_collinear; }
-    });
-    vars2d.push_back({
-        "dphi_e_met_vs_m_collinear", "|#Delta#phi(e,MET)| vs M_{collinear};|#Delta#phi(e,MET)|;M_{collinear} [GeV]",
-        64, 0.0, 3.2,
-        250, 0.5, 250.5,
-        [](const Event&, const Meta& m) -> double { return m.dphi_e_met; },
-        [](const Event&, const Meta& m) -> double { return m.m_collinear; }
-    });
-    vars2d.push_back({
-        "dphi_mu_met_vs_m_collinear", "|#Delta#phi(#mu,MET)| vs M_{collinear};|#Delta#phi(#mu,MET)|;M_{collinear} [GeV]",
-        64, 0.0, 3.2,
-        250, 0.5, 250.5,
-        [](const Event&, const Meta& m) -> double { return m.dphi_mu_met; },
-        [](const Event&, const Meta& m) -> double { return m.m_collinear; }
-    });
-    vars2d.push_back({
-        "dphi_mu_e_vs_m_collinear", "|#Delta#phi(#mu,e)| vs M_{collinear};|#Delta#phi(#mu,e)|;M_{collinear} [GeV]",
-        64, 0.0, 3.2,
-        250, 0.5, 250.5,
-        [](const Event&, const Meta& m) -> double { return m.dphi_mu_e; },
-        [](const Event&, const Meta& m) -> double { return m.m_collinear; }
-    });
-    vars2d.push_back({
-        "m_transverse_e_vs_m_collinear", "M_{T}(e) vs M_{collinear};M_{T}(e) [GeV];M_{collinear} [GeV]",
-        120, 0.0, 120.0,
-        250, 0.5, 250.5,
-        [](const Event&, const Meta& m) -> double { return m.m_transverse_e; },
-        [](const Event&, const Meta& m) -> double { return m.m_collinear; }
-    });
-    vars2d.push_back({
-        "m_transverse_mu_vs_m_collinear", "M_{T}(#mu) vs M_{collinear};M_{T}(#mu) [GeV];M_{collinear} [GeV]",
-        120, 0.0, 120.0,
-        250, 0.5, 250.5,
-        [](const Event&, const Meta& m) -> double { return m.m_transverse_mu; },
-        [](const Event&, const Meta& m) -> double { return m.m_collinear; }
-    });
-    vars2d.push_back({
-        "m_transverse_e_fine_vs_m_collinear", "M_{T}(e) fine vs M_{collinear};M_{T}(e) [GeV];M_{collinear} [GeV]",
-        300, 0.01, 3.01,
-        250, 0.5, 250.5,
-        [](const Event&, const Meta& m) -> double { return m.m_transverse_e; },
-        [](const Event&, const Meta& m) -> double { return m.m_collinear; }
-    });
-    vars2d.push_back({
-        "m_transverse_mu_fine_vs_m_collinear", "M_{T}(#mu) fine vs M_{collinear};M_{T}(#mu) [GeV];M_{collinear} [GeV]",
-        300, 0.01, 3.01,
-        250, 0.5, 250.5,
-        [](const Event&, const Meta& m) -> double { return m.m_transverse_mu; },
-        [](const Event&, const Meta& m) -> double { return m.m_collinear; }
-    });
-    vars2d.push_back({
-        "deltaR_mu_e_vs_m_collinear", "#DeltaR(#mu,e) vs M_{collinear};#DeltaR(#mu,e);M_{collinear} [GeV]",
-        60, 0.0, 6.0,
-        250, 0.5, 250.5,
-        [](const Event&, const Meta& m) -> double { return m.deltaR_mu_e; },
-        [](const Event&, const Meta& m) -> double { return m.m_collinear; }
-    });
-    vars2d.push_back({
-        "h_mu_boosted_pt_vs_m_collinear", "Boosted p_{T}(#mu) vs M_{collinear};p_{T}(#mu) [GeV];M_{collinear} [GeV]",
-        50, 0.0, 100.0,
-        250, 0.5, 250.5,
-        [](const Event&, const Meta& m) -> double { return m.h_mu_boosted_pt; },
-        [](const Event&, const Meta& m) -> double { return m.m_collinear; }
-    });
-    vars2d.push_back({
-        "h_e_boosted_pt_vs_m_collinear", "Boosted p_{T}(e) vs M_{collinear};p_{T}(e) [GeV];M_{collinear} [GeV]",
-        50, 0.0, 100.0,
-        250, 0.5, 250.5,
-        [](const Event&, const Meta& m) -> double { return m.h_e_boosted_pt; },
-        [](const Event&, const Meta& m) -> double { return m.m_collinear; }
-    });
-    // displaced track variables
-    vars2d.push_back({
-        "h_e_d0_vs_m_collinear", "|D0(e)| vs M_{collinear};|D0(e)| [Unknow Unit];M_{collinear} [GeV]",
-        100, 0.0, 0.1,
-        250, 0.5, 250.5,
-        [](const Event&, const Meta& m) -> double { return m.h_e_d0; },
-        [](const Event&, const Meta& m) -> double { return m.m_collinear; }
-    });
-    vars2d.push_back({
-        "h_e_dz_vs_m_collinear", "|DZ(e)| vs M_{collinear};|DZ(e)| [Unknow Unit];M_{collinear} [GeV]",
-        100, 0.0, 0.5,
-        250, 0.5, 250.5,
-        [](const Event&, const Meta& m) -> double { return m.h_e_dz; },
-        [](const Event&, const Meta& m) -> double { return m.m_collinear; }
-    });
-    vars2d.push_back({
-        "h_mu_d0_vs_m_collinear", "|D0(#mu)| vs M_{collinear};|D0(#mu)| [Unknow Unit];M_{collinear} [GeV]",
-        100, 0.0, 0.1,
-        250, 0.5, 250.5,
-        [](const Event&, const Meta& m) -> double { return m.h_mu_d0; },
-        [](const Event&, const Meta& m) -> double { return m.m_collinear; }
-    });
-    vars2d.push_back({
-        "h_mu_dz_vs_m_collinear", "|DZ(#mu)| vs M_{collinear};|DZ(#mu)| [Unknow Unit];M_{collinear} [GeV]",
-        100, 0.0, 0.5,
-        250, 0.5, 250.5,
-        [](const Event&, const Meta& m) -> double { return m.h_mu_dz; },
-        [](const Event&, const Meta& m) -> double { return m.m_collinear; }
-    });
-    // recoil vs collinear mass
-    vars2d.push_back({
-        "m_recoil_vs_m_collinear", "M_{recoil} vs M_{collinear};M_{recoil} [GeV];M_{collinear} [GeV]",
-        250, 0.5, 250.5,
-        250, 0.5, 250.5,
-        [](const Event&, const Meta& m) -> double { return m.m_recoil; },
-        [](const Event&, const Meta& m) -> double { return m.m_collinear; }
-    });
-
+    // vars2d.push_back({
+    //     "mZ_vs_mH1", "M_{Z1} vs M_{H1};M_{Z1} [GeV];M_{H1} [GeV]",
+    //     100, 0.5, 250.5,
+    //     100, 0.5, 250.5,
+    //     [](const Event&, const Meta& m) -> double { return m.m_z1; },
+    //     [](const Event&, const Meta& m) -> double { return m.m_h1; }
+    // });
     return vars2d;
 }
 

@@ -19,66 +19,22 @@ struct LeptonSelection : public ISelection {
     std::string name() const override;
     bool apply(const Event& evt, Meta& meta, const Parameters& cfg) override;
 };
-
-struct ZToLLSelection : public ISelection {
+struct JetVeto : public ISelection {
+    std::string name() const override;
+    bool apply(const Event& evt, Meta& meta, const Parameters& cfg) override;
+};
+struct JetCategorization : public ISelection {
+    std::string name() const override;
+    bool apply(const Event& evt, Meta& meta, const Parameters& cfg) override;
+};
+struct LeptonPTCut : public ISelection {
+    std::string name() const override;
+    bool apply(const Event& evt, Meta& meta, const Parameters& cfg) override;
+};
+struct DeltaPhiMETLepton : public ISelection {
     std::string name() const override;
     bool apply(const Event& evt, Meta& meta, const Parameters& cfg) override;
 };
 
-struct ZCandidateSelection : public ISelection {
-    std::string name() const override;
-    bool apply(const Event& evt, Meta& meta, const Parameters& cfg) override;
-};
-
-
-struct PT_ZCandidateSelection : public ISelection {
-    std::string name() const override;
-    bool apply(const Event& evt, Meta& meta, const Parameters& cfg) override;
-};
-
-struct Modified_ZCandidateSelection : public ISelection {
-    std::string name() const override;
-    bool apply(const Event& evt, Meta& meta, const Parameters& cfg) override;
-};
-
-struct NoPTMin_ZCandidateSelection : public ISelection {
-    std::string name() const override;
-    bool apply(const Event& evt, Meta& meta, const Parameters& cfg) override;
-};
-
-struct HToMuTauESelection : public ISelection {
-    std::string name() const override;
-    bool apply(const Event& evt, Meta& meta, const Parameters& cfg) override;
-};
-
-struct HToETauMuSelection : public ISelection {
-    std::string name() const override;
-    bool apply(const Event& evt, Meta& meta, const Parameters& cfg) override;
-};
-
-struct METEDphiSelection : public ISelection {
-    std::string name() const override;
-    bool apply(const Event& evt, Meta& meta, const Parameters& cfg) override;
-};
-
-struct METMuDphiSelection : public ISelection {
-    std::string name() const override;
-    bool apply(const Event& evt, Meta& meta, const Parameters& cfg) override;
-};
-
-struct RecoilMassSelection : public ISelection {
-    std::string name() const override;
-    bool apply(const Event& evt, Meta& meta, const Parameters& cfg) override;
-};
-
-struct HCandidateSelection : public ISelection {
-    std::string name() const override;
-    bool apply(const Event& evt, Meta& meta, const Parameters& cfg) override;
-};
-
-struct HToMuESelection : public ISelection {
-    std::string name() const override;
-    bool apply(const Event& evt, Meta& meta, const Parameters& cfg) override;
-};
 
 } // namespace hlfv

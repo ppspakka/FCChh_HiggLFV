@@ -1,0 +1,33 @@
+{
+  "parameters": {
+    "_comment": "Configuration parameters for the selection cuts",
+    "_comment0": "LFV mode: 0 for etaumu, 1 for mutaue",
+
+    "mode": 1,
+    
+    "_comment1": "==== Lepton Selection ====",
+    "mu_pt_min": 10.0,
+    "e_pt_min": 5.0,
+    "min_dr_e_mu": 0.3,
+    "min_dphi_e_mu": 2.2,
+
+    "_comment2": "==== Jet Veto ====",
+    "jet_pt_min": 30.0,
+    "n_jet": 0,
+
+    "_comment3": "==== Lepton PT Cut ====",
+    "mu_pt_cut": 60.0,
+    "e_pt_cut": 10.0,
+
+    "_comment4": "==== DPhi(MET, lep) Cut ====",
+    "max_dphi_lep_met": 0.7
+  },
+  "selections": [
+    { "name": "lepton_selection",     "enabled": true },
+    { "name": "jet_veto",            "enabled": true },
+    { "name": "jet_categorization",     "enabled": true },
+    { "name": "lepton_pt_cut",       "enabled": true },
+    { "name": "deltaphi_met_lepton",    "enabled": true },
+    { "name": "finalstate_nocut",       "enabled": true }
+  ]
+}

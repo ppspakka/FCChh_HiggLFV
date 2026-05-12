@@ -68,6 +68,7 @@ void analyze_pipeline(const char* inputPath = "samples/HMuTauE_LFV_125.root",
     chain->SetBranchStatus("MissingET*", 1);
     // Enable Event Number for debugging
     chain->SetBranchStatus("Event", 1);
+    chain->SetBranchStatus("Jet*", 1);
 
     // Load pipeline config (JSON). Fallback to defaults if missing.
     PipelineConfig cfg;
@@ -106,15 +107,16 @@ void analyze_pipeline(const char* inputPath = "samples/HMuTauE_LFV_125.root",
     // Print all Parameters used (in loop)
     printf("==== Analysis Parameters ====\n");
     for (const auto& p : {
-        std::make_pair("lepton_pt_min", params.lepton_pt_min),
-        std::make_pair("z_mass", params.z_mass),
-        std::make_pair("zl_pt_min", params.zl_pt_min),
-        std::make_pair("z_mass_window_upper", params.z_mass_window_upper),
-        std::make_pair("z_mass_window_lower", params.z_mass_window_lower),
+        std::make_pair("mode", params.mode),
         std::make_pair("mu_pt_min", params.mu_pt_min),
         std::make_pair("e_pt_min", params.e_pt_min),
-        std::make_pair("max_dphi_e_met", params.max_dphi_e_met),
-        std::make_pair("max_dphi_mu_met", params.max_dphi_mu_met)
+        std::make_pair("min_dr_e_mu", params.min_dr_e_mu),
+        std::make_pair("min_dphi_e_mu", params.min_dphi_e_mu),
+        std::make_pair("jet_pt_min", params.jet_pt_min),
+        std::make_pair("n_jet", params.n_jet),
+        std::make_pair("e_pt_cut", params.e_pt_cut),
+        std::make_pair("mu_pt_cut", params.mu_pt_cut),
+        std::make_pair("max_dphi_lep_met", params.max_dphi_lep_met)
     }) {
         printf("%-20s : %g\n", p.first, p.second);
     }
