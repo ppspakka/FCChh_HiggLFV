@@ -17,29 +17,30 @@ def main():
     combine_env["PYTHONNOUSERSITE"] = "1"
     
     for ch in channels:
-        dir_21 = f"datacards_{ch}_21To81"
-        dir_81 = f"datacards_{ch}_81To101"
-        dir_comb = f"datacards_{ch}_combined"
+        for cut in ["highmass", "lowmass"]: # e.g datacards_etaumu_highmass_0j
+        dir_0j = f"datacards_{ch}_{cut}_0j"
+        dir_1j = f"datacards_{ch}_{cut}_1j"
+        dir_comb = f"datacards_{ch}_{cut}_combined"
 
-        if not os.path.exists(dir_21) or not os.path.exists(dir_81):
+        if not os.path.exists(dir_0j) or not os.path.exists(dir_1j):
             print(f"Skipping {ch}: Missing input directories.")
             continue
 
         os.makedirs(dir_comb, exist_ok=True)
 
-        cards_21 = glob.glob(os.path.join(dir_21, "datacard_*.txt"))
+        cards_0j = glob.glob(os.path.join(dir_0j, "datacard_*.txt"))
         
-        for card_21 in cards_21:
-            filename = os.path.basename(card_21)
-            card_81 = os.path.join(dir_81, filename)
+        for card_0j in cards_0j:
+            filename = os.path.basename(card_0j)
+            card_1j = os.path.join(dir_1j, filename)
             card_comb = os.path.join(dir_comb, filename)
 
-            if not os.path.exists(card_81):
-                print(f"Warning: {card_81} missing. Skipping {filename}.")
+            if not os.path.exists(card_1j):
+                print(f"Warning: {card_1j} missing. Skipping {filename}.")
                 continue
 
             # Execute combineCards.py with isolated environment and native Python file writing
-            cmd = ["combineCards.py", f"bin21_81={card_21}", f"bin81_101={card_81}"]
+            cmd = ["combineCards.py", f"bin0j_1j={card_0j}", f"bin1j_2j={card_1j}"]
             with open(card_comb, "w") as f_out:
                 subprocess.run(cmd, env=combine_env, stdout=f_out, check=True)
 
@@ -47,7 +48,7 @@ def main():
 
         # Copy auxiliary scripts
         for script in ["run_limits.py", "slurm_submit.slurm"]:
-            src = os.path.join(dir_21, script)
+            src = os.path.join(dir_0j, script)
             if os.path.exists(src):
                 shutil.copy(src, dir_comb)
 

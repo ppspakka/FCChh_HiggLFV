@@ -101,23 +101,31 @@ BACKGROUND_UNC_VALUE = 1.3 # 30% uncertainty on backgrounds
 
 UNCERTAINTIES = {
     "lumi": 1.02, # This indicate apply globally
-    # "bkg_unc": 1.3,
     "example_proc_unc": {
         "proc1": 1.05,
         "proc2": 1.10,
     },
-    "zz" : {
-        "zz_ll_tautau": 1.3,
+    "DY" : {
+        "DY0j": 1.3,
+        "DY1j": 1.3,
     },
-    "zh" : {
-        "zh_ll_ww": 1.3,
-        "zh_ll_tautau": 1.3,
+    "ttbar" : {
+        "ttbar": 1.3,
     },
-    "zww" : {
-        "zww": 1.3,
+    "tW" : {
+        "tW": 1.3,
+        "tbarW": 1.3,
     },
-    "vbs" : {
-        "vbs": 1.3,
+    "SM_ggH" : {
+        "SM_ggH_tautau": 1.3,
+        "SM_ggH_WW": 1.3,
+    },
+    "SM_VBF" : {
+        "SM_VBFH_tautau": 1.3,
+        "SM_VBFH_WW": 1.3,
+    },
+    "WW" : {
+        "WW": 1.3,
     },
 }
 

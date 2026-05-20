@@ -1,10 +1,18 @@
 {
-    "DY0j": 610.0,
-    "ttbar": 830.0,
-    "ggH_mutau200": 1,
-    "ggH_mutau300": 1,
-    "ggH_mutau450": 1,
-     "ggH_mutau600": 1,
-     "ggH_mutau750": 1,
-     "ggH_mutau900": 1
+    "ttbar": 2575.0,
+    "tW": 164.3,
+    "tbarW": 164.3,
+    "DY0j": 700.0,
+    "DY1j": 545.1,
+    "WW": 118.7,
+    "SM_ggH_tautau": 6.351,
+    "SM_ggH_WW": 17.96,
+    "SM_VBFH_tautau": 0.554,
+    "SM_VBFH_WW": 1.566,
+    "ggH_200": 0.001,
+    "ggH_300": 0.001,
+    "ggH_450": 0.001,
+    "ggH_600": 0.001,
+    "ggH_750": 0.001,
+    "ggH_900": 0.001
 }

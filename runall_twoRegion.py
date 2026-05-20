@@ -319,6 +319,7 @@ def run_sbatch_commands(args):
                 print(f"Copied {script} to {dest}")
             except Exception as e:
                 print(f"Failed to copy {script} to {dest}: {e}")
+    
 
 
 def main():
@@ -408,7 +409,8 @@ def main():
     if not args.skip_makecard:
         run_makecard_commands(args)
     
-    run_sbatch_commands(args)
+    if not args.skip_sbatch:
+        run_sbatch_commands(args)
     
     # Run Final merge_datacards script
     merge_script = "datacards/merge_datacards.py"
