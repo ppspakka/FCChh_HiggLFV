@@ -10,7 +10,6 @@ CutPython.py
 !datacards_*/ --- IGNORE ---
 !include/
 !src/
-!datacards/ --- IGNORE ---
 datacards_*/
 PythonTest.ipynb
 PlotYield.ipynb

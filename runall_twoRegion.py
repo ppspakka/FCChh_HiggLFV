@@ -409,8 +409,7 @@ def main():
     if not args.skip_makecard:
         run_makecard_commands(args)
     
-    if not args.skip_sbatch:
-        run_sbatch_commands(args)
+    run_sbatch_commands(args)
     
     # Run Final merge_datacards script
     merge_script = "datacards/merge_datacards.py"
