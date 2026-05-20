@@ -7,7 +7,6 @@ datacards/*.out
 CutPython.py
 *.sh
 .vscode/
-!datacards_*/ --- IGNORE ---
 !include/
 !src/
 datacards_*/

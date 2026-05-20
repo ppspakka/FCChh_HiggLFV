@@ -43,11 +43,11 @@ MASS_RANGES = [200, 300, 450, 600, 750, 900]
 
 # --- Replace these with your actual paths ---
 SIGNALS = {
-    f"{SIGNAL_TYPE}_{mass}": [
+    f"{SIGNAL_TYPE}_{channel}_{mass}": [
         # f"/path/to/ggH/Hmass{mass}/DIR_1/",
-        "/work/project/physics/psriling/FCC/FCChh/TestEnv/signals/mutaue/M450.root", # Test dir
+        f"/work/project/physics/psriling/FCC/FCChh/TestEnv/signals/{channel}/M450.root", # Test dir
     ]
-    for mass in MASS_RANGES
+    for mass in MASS_RANGES for channel in CHANNELS
 }
 
 BACKGROUNDS = {
@@ -112,14 +112,36 @@ def build_jobs(base_out_dir: Path) -> List[Job]:
         out_dir = base_out_dir / f"hist_{cc}"
         
         # Signals
-        if CONFIG.get(f"signal_{cc}", False):
+        # if CONFIG.get(f"signal_{cc}", False):
+        #     for sig_name, paths in SIGNALS.items():
+        #         for idx, path in enumerate(paths):
+        #             jobs.append(Job(
+        #                 input_path=path, idx=idx, output_dir=out_dir, 
+        #                 pipeline=PIPELINES[cc], sample_type="signal", 
+        #                 channel_cat=cc, name=sig_name
+        #             ))
+        
+        # Only run signal mutaue for channels containing "mutaue"
+        if CONFIG.get(f"signal_{cc}", False) and "mutaue" in cc:
             for sig_name, paths in SIGNALS.items():
-                for idx, path in enumerate(paths):
-                    jobs.append(Job(
-                        input_path=path, idx=idx, output_dir=out_dir, 
-                        pipeline=PIPELINES[cc], sample_type="signal", 
-                        channel_cat=cc, name=sig_name
-                    ))
+                # if mutaue in sig_name
+                if sig_name.startswith(f"{SIGNAL_TYPE}_mutaue"):
+                    for idx, path in enumerate(paths):
+                        jobs.append(Job(
+                            input_path=path, idx=idx, output_dir=out_dir, 
+                            pipeline=PIPELINES[cc], sample_type="signal", 
+                            channel_cat=cc, name=sig_name
+                        ))
+        # Etaumu
+        if CONFIG.get(f"signal_{cc}", False) and "etaumu" in cc:
+            for sig_name, paths in SIGNALS.items():
+                if sig_name.startswith(f"{SIGNAL_TYPE}_etaumu"):
+                    for idx, path in enumerate(paths):
+                        jobs.append(Job(
+                            input_path=path, idx=idx, output_dir=out_dir, 
+                            pipeline=PIPELINES[cc], sample_type="signal", 
+                            channel_cat=cc, name=sig_name
+                        ))
 
         # Backgrounds
         if CONFIG.get(f"background_{cc}", False):

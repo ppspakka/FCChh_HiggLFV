@@ -9,10 +9,23 @@
     "SM_ggH_WW": 17.96,
     "SM_VBFH_tautau": 0.554,
     "SM_VBFH_WW": 1.566,
+    
     "ggH_200": 0.001,
     "ggH_300": 0.001,
     "ggH_450": 0.001,
     "ggH_600": 0.001,
     "ggH_750": 0.001,
-    "ggH_900": 0.001
+    "ggH_900": 0.001,
+
+    "ggH_etaumu_200": 0.001,
+    "ggH_etaumu_300": 0.001,
+    "ggH_etaumu_450": 0.001,
+    "ggH_etaumu_600": 0.001,
+    "ggH_etaumu_750": 0.001,
+    "ggH_etaumu_900": 0.001,
+    "ggH_mutaue_200": 0.001,
+    "ggH_mutaue_300": 0.001,
+    "ggH_mutaue_450": 0.001,
+    "ggH_mutaue_600": 0.001,
+    "ggH_mutaue_750": 0.001
 }

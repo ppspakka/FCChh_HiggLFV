@@ -7,7 +7,7 @@
     
     "_comment1": "==== Lepton Selection ====",
     "mu_pt_min": 10.0,
-    "e_pt_min": 5.0,
+    "e_pt_min": 10.0,
     "min_dr_e_mu": 0.3,
     "min_dphi_e_mu": 2.2,
 
