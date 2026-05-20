@@ -149,7 +149,27 @@ std::vector<HistogramManager::VarSpec> Variables::getDefault() {
         "n_muons", "Number of muons;N_{#mu};Events", 6, -0.5, 5.5,
         [](const Event& evt, const Meta&) -> double { return evt.d ? (double)evt.d->Muon_size : std::numeric_limits<double>::quiet_NaN(); }
     });
-
+    vars.push_back({
+        "MET", "Missing Transverse Energy;MET [GeV];Events", 500, 0, 500,
+        [](const Event&, const Meta& m) -> double { return m.MET; }
+    });
+    vars.push_back({
+        "m_collinear", "Collinear Mass;M_{collinear} [GeV];Events", 500, 0, 500,
+        [](const Event&, const Meta& m) -> double { return m.m_collinear; }
+    });
+    vars.push_back({
+        "mu_pt", "Muon p_{T};p_{T} [GeV];Events", 100, 0, 500,
+        [](const Event&, const Meta& m) -> double { return m.mu_pt; }
+    });
+    vars.push_back({
+        "e_pt", "Electron p_{T};p_{T} [GeV];Events", 100, 0, 500,
+        [](const Event&, const Meta& m) -> double { return m.e_pt; }
+    });
+    vars.push_back({
+        "n_jet", "Number of jets;N_{jets};Events", 10, -0.5, 9.5,
+        // [](const Event&, const Meta& m) -> double { return m.n_jet; }
+        [](const Event& evt, const Meta&) -> double { return evt.d ? (double)evt.d->Jet_size : std::numeric_limits<double>::quiet_NaN(); }
+    });
 
     return vars;
 }
@@ -165,6 +185,15 @@ std::vector<HistogramManager::Var2DSpec> Variables::getDefault2D() {
     //     [](const Event&, const Meta& m) -> double { return m.m_z1; },
     //     [](const Event&, const Meta& m) -> double { return m.m_h1; }
     // });
+
+    // e pt vs mu pt
+    vars2d.push_back({
+        "e_pt_vs_mu_pt", "Electron p_{T} vs Muon p_{T};p_{T}^{e} [GeV];p_{T}^{#mu} [GeV]",
+        100, 0, 500,
+        100, 0, 500,
+        [](const Event&, const Meta& m) -> double { return m.e_pt; },
+        [](const Event&, const Meta& m) -> double { return m.mu_pt; }
+    });
     return vars2d;
 }
 

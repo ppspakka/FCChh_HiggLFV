@@ -16,11 +16,11 @@
     "n_jet": 0,
 
     "_comment3": "==== Lepton PT Cut ====",
-    "mu_pt_cut": 60.0,
+    "mu_pt_cut": 150.0,
     "e_pt_cut": 10.0,
 
     "_comment4": "==== DPhi(MET, lep) Cut ====",
-    "max_dphi_lep_met": 0.7
+    "max_dphi_lep_met": 0.2
   },
   "selections": [
     { "name": "jet_veto",            "enabled": true },

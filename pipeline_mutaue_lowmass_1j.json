@@ -13,7 +13,7 @@
 
     "_comment2": "==== Jet Veto ====",
     "jet_pt_min": 30.0,
-    "n_jet": 0,
+    "n_jet": 1,
 
     "_comment3": "==== Lepton PT Cut ====",
     "mu_pt_cut": 60.0,

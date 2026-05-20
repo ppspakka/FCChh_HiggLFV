@@ -1,343 +1,318 @@
 #!/usr/bin/env python3
 """
-Parallel runner converted from runall.sh
+Parallel runner for FCC-hh analysis
 
-- Builds a queue of jobs (signals & backgrounds) which can be enabled/disabled via CONFIG.
-- Runs jobs in parallel (default workers = 4).
-- Saves per-job log file next to the output, and also prints logs to the terminal (prefixed).
-- After successful completion, runs makecard.py for each processed channel.
+- Builds a queue of jobs across 8 pipeline configurations (2 channels * 2 mass categories * 2 jet bins).
+- Supports multiple directories per signal/background (jobs run per directory, producing _idx files).
+- Runs jobs in parallel.
+- Automatically merges outputs via `hadd` and sums cutflow log statistics.
+- Organizes or cleans up intermediate files.
+- Loops makecard.py and slurm submission over all 8 final directories.
 """
+
 from pathlib import Path
 import subprocess
 import sys
-import os
+import shutil
 import concurrent.futures
 import argparse
 from dataclasses import dataclass
-import shutil
 from typing import List, Dict, Any, Tuple
+import re
 
 # -------------------------
 # User-configurable section
 # -------------------------
-PARALLEL = 4  # default parallel workers
+PARALLEL = 4  # Default parallel workers
 
-# Pipeline files
-MUTAUE_81To101_PIPELINE = "./pipeline_mutaue_81To101.json"
-ETAUMU_81To101_PIPELINE = "./pipeline_etaumu_81To101.json"
-MUTAUE_21To81_PIPELINE = "./pipeline_mutaue_21To81.json"
-ETAUMU_21To81_PIPELINE = "./pipeline_etaumu_21To81.json"
+# Define the channels and categories (Total: 8 combinations)
+CHANNELS = ["mutaue", "etaumu"]
+CATEGORIES = ["lowmass_0j", "lowmass_1j", "highmass_0j", "highmass_1j"]
+CHANNEL_CATS = [f"{ch}_{cat}" for ch in CHANNELS for cat in CATEGORIES]
 
-# Save path
-PARENT_DIR = Path("./normal_cuts")
+# Auto-generate pipeline paths based on naming convention
+PIPELINES = {cc: f"./pipeline_{cc}.json" for cc in CHANNEL_CATS}
 
-# Place dummy
-MUTAUE_81To101_DIR = None
-ETAUMU_81To101_DIR = None
-MUTAUE_21To81_DIR = None
-ETAUMU_21To81_DIR = None
-STATUS_DIR = None  # Will be set dynamically to be inside args.output_dir
-
-# Backgrounds
-BACKGROUNDS = [
-    # ISR samples
-    "/work/project/physics/psriling/FCC/FCCee/ISR_zh_ll_ww/ROOT/",
-    "/work/project/physics/psriling/FCC/FCCee/ISR_zh_ll_tautau/ROOT/",
-    "/work/project/physics/psriling/FCC/FCCee/ISR_zz_ll_tautau/ROOT/",
-    "/work/project/physics/psriling/FCC/FCCee/ISR_zww/ROOT/",
-    "/work/project/physics/psriling/FCC/FCCee/ISR_vbs/ROOT/"
-]
-BACKGROUNDS_NAMES = [
-    # "HZFourLep",  # Unused
-    "zh_ll_ww",
-    "zh_ll_tautau",
-    "zz_ll_tautau",
-    "zww",
-    "vbs"
-]
-
-# Toggle which channels / types to include (set True/False)
+# Toggle which types to include
 RUN_SIGNALS = True
 RUN_BACKGROUNDS = True
 
-SIGNAL_TYPE = "ZH"  # ZH or VBF
+# Signal Config (Modeled identically to background to support multi-dir structure)
+SIGNAL_TYPE = "ggH"
+MASS_RANGES = [200, 300, 450, 600, 750, 900]
 
-MASS_LOW = 110
-MASS_HIGH = 220
-STEP_SIZE = 5
-MASS_RANGE = range(MASS_LOW, MASS_HIGH + 1, STEP_SIZE)
-
-SIGNAL_PATHS = {
-    "mutaue_81To101": {},
-    "etaumu_81To101": {},
-    "mutaue_21To81": {},
-    "etaumu_21To81": {}
+# --- Replace these with your actual paths ---
+SIGNALS = {
+    f"{SIGNAL_TYPE}_{mass}": [
+        # f"/path/to/ggH/Hmass{mass}/DIR_1/",
+        "/work/project/physics/psriling/FCC/FCChh/TestEnv/signals/mutaue/M450.root", # Test dir
+    ]
+    for mass in MASS_RANGES
 }
-if SIGNAL_TYPE == "ZH":
-    # Init path (ZH)
-    for mass in MASS_RANGE:
-        SIGNAL_PATHS["mutaue_81To101"][mass] = f"/work/project/physics/psriling/FCC/FCCee/ISR_HMuTauE_LFV/Hmass{mass}/ROOT/"
-        SIGNAL_PATHS["etaumu_81To101"][mass] = f"/work/project/physics/psriling/FCC/FCCee/ISR_HETauMu_LFV/Hmass{mass}/ROOT/"
-        SIGNAL_PATHS["mutaue_21To81"][mass] = f"/work/project/physics/psriling/FCC/FCCee/ISR_HMuTauE_LFV/Hmass{mass}/ROOT/"
-        SIGNAL_PATHS["etaumu_21To81"][mass] = f"/work/project/physics/psriling/FCC/FCCee/ISR_HETauMu_LFV/Hmass{mass}/ROOT/"
 
-elif SIGNAL_TYPE == "VBF":
-    # VBF version
-    # f"/work/project/physics/vwachira/fcc-ee-higgs-lfv/delphes_outputs/mh{mass}_mutau/" (or etau)
-    for mass in MASS_RANGE:
-        SIGNAL_PATHS["mutaue_81To101"][mass] = f"/work/project/physics/vwachira/fcc-ee-higgs-lfv/delphes_outputs/mh{mass}_mutau/"
-        SIGNAL_PATHS["etaumu_81To101"][mass] = f"/work/project/physics/vwachira/fcc-ee-higgs-lfv/delphes_outputs/mh{mass}_etau/"
-        SIGNAL_PATHS["mutaue_21To81"][mass] = f"/work/project/physics/vwachira/fcc-ee-higgs-lfv/delphes_outputs/mh{mass}_mutau/"
-        SIGNAL_PATHS["etaumu_21To81"][mass] = f"/work/project/physics/vwachira/fcc-ee-higgs-lfv/delphes_outputs/mh{mass}_etau/"
-else:
-    print(f"Unknown SIGNAL_TYPE: {SIGNAL_TYPE}")
-    sys.exit(1)
-
-CONFIG = {
-    "signal_mutaue_81To101": RUN_SIGNALS,
-    "signal_etaumu_81To101": RUN_SIGNALS,
-    "signal_mutaue_21To81": RUN_SIGNALS,
-    "signal_etaumu_21To81": RUN_SIGNALS,
-    "background_mutaue_81To101": RUN_BACKGROUNDS,
-    "background_etaumu_81To101": RUN_BACKGROUNDS,
-    "background_mutaue_21To81": RUN_BACKGROUNDS,
-    "background_etaumu_21To81": RUN_BACKGROUNDS,
+BACKGROUNDS = {
+    "DY0j": [
+        # Test dir
+        "/work/project/physics/psriling/FCC/FCChh/TestEnv/backgrounds/DY0j/dir1",
+        "/work/project/physics/psriling/FCC/FCChh/TestEnv/backgrounds/DY0j/dir2",
+    ],
+    "ttbar": [
+        "/work/project/physics/psriling/FCC/FCChh/TestEnv/backgrounds/ttbar/dir1",
+        "/work/project/physics/psriling/FCC/FCChh/TestEnv/backgrounds/ttbar/dir2",
+    ],
 }
-# -------------------------
-# End user-configurable
-# -------------------------
+# --------------------------------------------
+
+# Toggle per-category execution if needed (Defaults to globally True based on above)
+CONFIG = {}
+for cc in CHANNEL_CATS:
+    CONFIG[f"signal_{cc}"] = RUN_SIGNALS
+    CONFIG[f"background_{cc}"] = RUN_BACKGROUNDS
+
 
 @dataclass
 class Job:
     input_path: str
+    idx: int
     output_dir: Path
     pipeline: str
     sample_type: str  # "signal" or "background"
-    channel: str      # e.g. "mutaue", "etaumu", ...
-    name: str = None         # process name
+    channel_cat: str  # e.g. "mutaue_lowmass_0j"
+    name: str         # process name e.g. "ggH_200" or "DY0JET"
 
     def out_root(self) -> Path:
-        if self.sample_type == "signal":
-            base_name = Path(self.input_path).stem if self.name is None else self.name
-            return self.output_dir / f"{base_name}.root"
-        elif self.sample_type == "background":
-            idx = BACKGROUNDS.index(self.input_path)
-            bg_name = BACKGROUNDS_NAMES[idx]
-            return self.output_dir / f"{self.sample_type}_{bg_name}.root"
-        else:
-            raise ValueError(f"Unknown sample_type: {self.sample_type}")
+        return self.output_dir / f"{self.sample_type}_{self.name}_{self.idx}.root"
 
     def log_path(self) -> Path:
-        if self.sample_type == "signal":
-            base_name = Path(self.input_path).stem if self.name is None else self.name
-            return self.output_dir / f"{base_name}.log"
-        elif self.sample_type == "background":
-            idx = BACKGROUNDS.index(self.input_path)
-            bg_name = BACKGROUNDS_NAMES[idx]
-            return self.output_dir / f"{self.sample_type}_{bg_name}.log"
-        else:
-            raise ValueError(f"Unknown sample_type: {self.sample_type}")
+        return self.output_dir / f"{self.sample_type}_{self.name}_{self.idx}.log"
+
+    def merged_root(self) -> Path:
+        return self.output_dir / f"{self.sample_type}_{self.name}.root"
+
+    def merged_log(self) -> Path:
+        return self.output_dir / f"{self.sample_type}_{self.name}.log"
 
     def command(self) -> List[str]:
         cpp_arg = f'analyze_pipeline.cpp("{self.input_path}","{self.out_root()}","{self.pipeline}")'
         return ["root", "-l", "-b", "-q", cpp_arg]
 
 
-def ensure_dirs():
-    for d in (MUTAUE_81To101_DIR, ETAUMU_81To101_DIR, MUTAUE_21To81_DIR, ETAUMU_21To81_DIR):
-        d.mkdir(parents=True, exist_ok=True)
-
-
-def update_job_status(job: Job, status: str):
+def update_job_status(status_dir: Path, job: Job, status: str):
     """Updates the status file for a job by replacing the old status file with a new one."""
-    base_prefix = f"{job.channel}_{job.name}__."
-    # Remove any existing status files for this job
-    for f in STATUS_DIR.glob(f"{base_prefix}*"):
+    base_prefix = f"{job.channel_cat}_{job.name}_{job.idx}__."
+    for f in status_dir.glob(f"{base_prefix}*"):
         f.unlink(missing_ok=True)
-    # Create the new status file
-    (STATUS_DIR / f"{base_prefix}{status}").touch()
+    (status_dir / f"{base_prefix}{status}").touch()
 
 
-def build_jobs() -> List[Job]:
+def build_jobs(base_out_dir: Path) -> List[Job]:
     jobs: List[Job] = []
-
-    # MuTauE signals
-    if CONFIG["signal_mutaue_81To101"]:
-        for mass in MASS_RANGE:
-            inp = SIGNAL_PATHS["mutaue_81To101"].get(mass)
-            jobs.append(Job(input_path=inp, output_dir=MUTAUE_81To101_DIR, pipeline=MUTAUE_81To101_PIPELINE,
-                            sample_type="signal", channel="mutaue_81To101", name=f"signal_HMuTauE_LFV_{mass}"))
+    
+    for cc in CHANNEL_CATS:
+        out_dir = base_out_dir / f"hist_{cc}"
         
-    if CONFIG["background_mutaue_81To101"]:
-        for bg in BACKGROUNDS:
-            jobs.append(Job(input_path=bg, output_dir=MUTAUE_81To101_DIR, pipeline=MUTAUE_81To101_PIPELINE,
-                            sample_type="background", channel="mutaue_81To101", name=BACKGROUNDS_NAMES[BACKGROUNDS.index(bg)]))
+        # Signals
+        if CONFIG.get(f"signal_{cc}", False):
+            for sig_name, paths in SIGNALS.items():
+                for idx, path in enumerate(paths):
+                    jobs.append(Job(
+                        input_path=path, idx=idx, output_dir=out_dir, 
+                        pipeline=PIPELINES[cc], sample_type="signal", 
+                        channel_cat=cc, name=sig_name
+                    ))
 
-    # Etaumu signals
-    if CONFIG["signal_etaumu_81To101"]:
-        for mass in MASS_RANGE:
-            inp = SIGNAL_PATHS["etaumu_81To101"].get(mass)
-            jobs.append(Job(input_path=inp, output_dir=ETAUMU_81To101_DIR, pipeline=ETAUMU_81To101_PIPELINE,
-                            sample_type="signal", channel="etaumu_81To101", name=f"signal_HETauMu_LFV_{mass}"))
-    if CONFIG["background_etaumu_81To101"]:
-        for bg in BACKGROUNDS:
-            jobs.append(Job(input_path=bg, output_dir=ETAUMU_81To101_DIR, pipeline=ETAUMU_81To101_PIPELINE,
-                            sample_type="background", channel="etaumu_81To101", name=BACKGROUNDS_NAMES[BACKGROUNDS.index(bg)]))
-
-    # MuTauE Offshell
-    if CONFIG["signal_mutaue_21To81"]:
-        for mass in MASS_RANGE:
-            inp = SIGNAL_PATHS["mutaue_21To81"].get(mass)
-            jobs.append(Job(input_path=inp, output_dir=MUTAUE_21To81_DIR, pipeline=MUTAUE_21To81_PIPELINE,
-                            sample_type="signal", channel="mutaue_21To81", name=f"signal_HMuTauE_LFV_{mass}"))
-    if CONFIG["background_mutaue_21To81"]:
-        for bg in BACKGROUNDS:
-            jobs.append(Job(input_path=bg, output_dir=MUTAUE_21To81_DIR, pipeline=MUTAUE_21To81_PIPELINE,
-                            sample_type="background", channel="mutaue_21To81", name=BACKGROUNDS_NAMES[BACKGROUNDS.index(bg)]))
-
-    # Etaumu Offshell
-    if CONFIG["signal_etaumu_21To81"]:
-        for mass in MASS_RANGE:
-            inp = SIGNAL_PATHS["etaumu_21To81"].get(mass)
-            jobs.append(Job(input_path=inp, output_dir=ETAUMU_21To81_DIR, pipeline=ETAUMU_21To81_PIPELINE,
-                            sample_type="signal", channel="etaumu_21To81", name=f"signal_HETauMu_LFV_{mass}"))
-    if CONFIG["background_etaumu_21To81"]:
-        for bg in BACKGROUNDS:
-            jobs.append(Job(input_path=bg, output_dir=ETAUMU_21To81_DIR, pipeline=ETAUMU_21To81_PIPELINE,
-                            sample_type="background", channel="etaumu_21To81", name=BACKGROUNDS_NAMES[BACKGROUNDS.index(bg)]))
-
+        # Backgrounds
+        if CONFIG.get(f"background_{cc}", False):
+            for bg_name, paths in BACKGROUNDS.items():
+                for idx, path in enumerate(paths):
+                    jobs.append(Job(
+                        input_path=path, idx=idx, output_dir=out_dir, 
+                        pipeline=PIPELINES[cc], sample_type="background", 
+                        channel_cat=cc, name=bg_name
+                    ))
     return jobs
 
 
-def run_job(job: Job) -> Tuple[Job, int, str]:
-    """Runs a job, captures its output entirely, and manages its status."""
-    update_job_status(job, "running")
+def run_job(job: Job, status_dir: Path) -> Tuple[Job, int, str]:
+    """Runs a job, captures its output, and manages its status."""
+    update_job_status(status_dir, job, "running")
     job.output_dir.mkdir(parents=True, exist_ok=True)
-    log_path = job.log_path()
-    cmd = job.command()
-
-    # Capture all output rather than streaming line by line to prevent terminal mess
-    proc = subprocess.run(cmd, capture_output=True, text=True)
     
-    # Save captured output to the designated log file
-    with open(log_path, "w", encoding="utf-8", errors="replace") as logf:
+    proc = subprocess.run(job.command(), capture_output=True, text=True)
+    
+    with open(job.log_path(), "w", encoding="utf-8", errors="replace") as logf:
         logf.write(proc.stdout)
         if proc.stderr:
             logf.write("\n--- STDERR ---\n")
             logf.write(proc.stderr)
 
-    update_job_status(job, "done")
+    update_job_status(status_dir, job, "done")
     return job, proc.returncode, proc.stdout
 
 
+def merge_and_cleanup(jobs: List[Job], base_out_dir: Path, clean_intermediates: bool):
+    """Merges root/log files from multiple directories and handles intermediates."""
+    print("\n" + "="*50)
+    print("Starting Merging & Cleanup Process")
+    print("="*50)
+    
+    # Group jobs by logical output (channel_cat, sample_type, name)
+    grouped_jobs: Dict[str, List[Job]] = {}
+    for j in jobs:
+        key = f"{j.channel_cat}|{j.sample_type}|{j.name}"
+        if key not in grouped_jobs:
+            grouped_jobs[key] = []
+        grouped_jobs[key].append(j)
+
+    for key, group in grouped_jobs.items():
+        if not group:
+            continue
+            
+        first_job = group[0]
+        channel_cat = first_job.channel_cat
+        merged_root = first_job.merged_root()
+        merged_log = first_job.merged_log()
+        
+        # 1. Merge ROOT files using hadd
+        root_files = [str(j.out_root()) for j in group if j.out_root().exists()]
+        if not root_files:
+            print(f"Warning: No ROOT files found to merge for {key}")
+            continue
+            
+        if len(root_files) == 1:
+            # Only one file, just rename/copy
+            shutil.copy(root_files[0], str(merged_root))
+            print(f"Copied single root file for {first_job.name} ({channel_cat})")
+        else:
+            # Multiple files, hadd required
+            cmd = ["hadd", "-f", str(merged_root)] + root_files
+            print(f"Merging {len(root_files)} ROOT files for {first_job.name} ({channel_cat})")
+            subprocess.run(cmd, capture_output=True, check=True)
+
+        # 2. Merge Log files & Sum Cutflows
+        total_events = 0
+        cut_counts = {}
+        cut_order = []
+        
+        # Regex mappings based on expected output log format
+        re_total = re.compile(r"Total events:\s+(\d+)")
+        re_cut = re.compile(r"After\s+(.*?)\s+(\d+)\s+\(Efficiency")
+        
+        for j in group:
+            if not j.log_path().exists():
+                continue
+            with open(j.log_path(), "r") as f:
+                for line in f:
+                    m_total = re_total.search(line)
+                    if m_total:
+                        total_events += int(m_total.group(1))
+                    
+                    m_cut = re_cut.search(line)
+                    if m_cut:
+                        c_name = m_cut.group(1).strip()
+                        c_val = int(m_cut.group(2))
+                        if c_name not in cut_order:
+                            cut_order.append(c_name)
+                        cut_counts[c_name] = cut_counts.get(c_name, 0) + c_val
+
+        # Write merged log
+        with open(merged_log, "w") as f:
+            f.write("==== Merged Analysis Parameters ====\n")
+            f.write(f"(Merged across {len(group)} input directories)\n")
+            f.write("======================================\n\n")
+            f.write("==== Pipeline summary (Merged) ====\n")
+            f.write(f"Total events:          {total_events}\n")
+            
+            for cut in cut_order:
+                val = cut_counts[cut]
+                eff = (val / total_events * 100.0) if total_events > 0 else 0.0
+                f.write(f"After {cut:<25} {val} (Efficiency: {eff:.6f}%)\n")
+
+        # 3. Handle Intermediates (Delete or Stash)
+        inter_dir = base_out_dir / "intermediates" / channel_cat
+        if not clean_intermediates:
+            inter_dir.mkdir(parents=True, exist_ok=True)
+            
+        for j in group:
+            if j.out_root().exists():
+                if clean_intermediates:
+                    j.out_root().unlink()
+                else:
+                    shutil.move(str(j.out_root()), str(inter_dir / j.out_root().name))
+            
+            if j.log_path().exists():
+                if clean_intermediates:
+                    j.log_path().unlink()
+                else:
+                    shutil.move(str(j.log_path()), str(inter_dir / j.log_path().name))
+
+    print("Merging & Cleanup Complete.")
+
+
 def run_makecard_commands(args, dry_run: bool = False):
-    """Builds and runs the makecard.py commands for channels that were processed."""
     print("\n" + "="*30)
     print("Starting makecard generation")
     print("="*30)
 
-    makecard_jobs: Dict[str, Any] = {
-        "mutaue_81To101": {
-            "in_dir": MUTAUE_81To101_DIR,
-            "out_dir": Path(f"{args.output_dir}/{MUTAUE_81To101_DIR.name.replace('hist_', 'datacards_')}"),
-            "enabled": CONFIG["signal_mutaue_81To101"] or CONFIG["background_mutaue_81To101"]
-        },
-        "etaumu_81To101": {
-            "in_dir": ETAUMU_81To101_DIR,
-            "out_dir": Path(f"{args.output_dir}/{ETAUMU_81To101_DIR.name.replace('hist_', 'datacards_')}"),
-            "enabled": CONFIG["signal_etaumu_81To101"] or CONFIG["background_etaumu_81To101"]
-        },
-        "mutaue_21To81": {
-            "in_dir": MUTAUE_21To81_DIR,
-            "out_dir": Path(f"{args.output_dir}/{MUTAUE_21To81_DIR.name.replace('hist_', 'datacards_')}"),
-            "enabled": CONFIG["signal_mutaue_21To81"] or CONFIG["background_mutaue_21To81"]
-        },
-        "etaumu_21To81": {
-            "in_dir": ETAUMU_21To81_DIR,
-            "out_dir": Path(f"{args.output_dir}/{ETAUMU_21To81_DIR.name.replace('hist_', 'datacards_')}"),
-            "enabled": CONFIG["signal_etaumu_21To81"] or CONFIG["background_etaumu_21To81"]
-        },
-    }
-
-    lumi_pb = 5_000_000
+    lumi_pb = 30_000_000  # FCC-hh expected lumi scale? Adjust as needed
     failures = 0
+    base_out = Path(args.output_dir)
 
-    for name, params in makecard_jobs.items():
-        if not params["enabled"]:
+    for cc in CHANNEL_CATS:
+        in_dir = base_out / f"hist_{cc}"
+        out_dir = base_out / f"datacards_{cc}"
+        
+        # Skip if input dir wasn't created or is empty
+        if not in_dir.exists() or not any(in_dir.iterdir()):
             continue
-
-        out_dir = params["out_dir"]
+            
         out_dir.mkdir(exist_ok=True)
         
         cmd = [
             "python3", "makecard.py",
-            "--in-dir", str(params["in_dir"]),
+            "--in-dir", str(in_dir),
             "--lumi-pb", str(lumi_pb),
             "--out-root", str(out_dir / "merged.root"),
             "--out-card", str(out_dir)
         ]
 
-        print(f"\nRunning makecard for '{name}':")
-        print("CMD:", " ".join(cmd))
-
+        print(f"\nRunning makecard for '{cc}':")
         if dry_run:
-            print("DRY RUN: command not executed.")
+            print("DRY RUN CMD:", " ".join(cmd))
             continue
 
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-            print(result.stdout)
-            if result.stderr:
-                print("--- STDERR ---")
-                print(result.stderr)
-            print(f"Makecard for '{name}' completed successfully.")
+            print(f"Makecard for '{cc}' completed successfully.")
         except subprocess.CalledProcessError as e:
-            print(f"ERROR: makecard for '{name}' failed with exit code {e.returncode}.")
-            print("--- STDOUT ---")
-            print(e.stdout)
-            print("--- STDERR ---")
-            print(e.stderr)
+            print(f"ERROR: makecard for '{cc}' failed (rc {e.returncode}).")
+            print("STDERR:", e.stderr)
             failures += 1
         except FileNotFoundError:
-            print("ERROR: 'makecard.py' not found. Make sure it is in the current directory.")
+            print("ERROR: 'makecard.py' not found.")
             failures += 1
             break
     
     if failures > 0:
         print(f"\n{failures} makecard job(s) failed.")
         sys.exit(3)
-    else:
-        print("\nAll makecard jobs completed successfully.")
-        
+
+
 def run_sbatch_commands(args):
     script_files = ["datacards/run_limits.py", "datacards/slurm_submit.slurm"]
-    makecard_jobs: Dict[str, Any] = {
-        "mutaue_81To101": {
-            "in_dir": MUTAUE_81To101_DIR,
-            "out_dir": Path(f"{args.output_dir}/{MUTAUE_81To101_DIR.name.replace('hist_', 'datacards_')}"),
-            "enabled": CONFIG["signal_mutaue_81To101"] or CONFIG["background_mutaue_81To101"]
-        },
-        "etaumu_81To101": {
-            "in_dir": ETAUMU_81To101_DIR,
-            "out_dir": Path(f"{args.output_dir}/{ETAUMU_81To101_DIR.name.replace('hist_', 'datacards_')}"),
-            "enabled": CONFIG["signal_etaumu_81To101"] or CONFIG["background_etaumu_81To101"]
-        },
-        "mutaue_21To81": {
-            "in_dir": MUTAUE_21To81_DIR,
-            "out_dir": Path(f"{args.output_dir}/{MUTAUE_21To81_DIR.name.replace('hist_', 'datacards_')}"),
-            "enabled": CONFIG["signal_mutaue_21To81"] or CONFIG["background_mutaue_21To81"]
-        },
-        "etaumu_21To81": {
-            "in_dir": ETAUMU_21To81_DIR,
-            "out_dir": Path(f"{args.output_dir}/{ETAUMU_21To81_DIR.name.replace('hist_', 'datacards_')}"),
-            "enabled": CONFIG["signal_etaumu_21To81"] or CONFIG["background_etaumu_21To81"]
-        },
-    }
-    for name, params in makecard_jobs.items():
-        if not params["enabled"]:
+    base_out = Path(args.output_dir)
+    
+    for cc in CHANNEL_CATS:
+        in_dir = base_out / f"hist_{cc}"
+        out_dir = base_out / f"datacards_{cc}"
+        
+        # Only copy if datacard dir was actually created
+        if not out_dir.exists():
             continue
-        out_dir = params["out_dir"]
+            
         for script in script_files:
+            if not Path(script).exists():
+                continue
             dest = out_dir / Path(script).name
             try:
                 shutil.copy(script, dest)
@@ -345,141 +320,113 @@ def run_sbatch_commands(args):
             except Exception as e:
                 print(f"Failed to copy {script} to {dest}: {e}")
 
+
 def main():
-    parser = argparse.ArgumentParser(description="Parallel runner for analyze_pipeline jobs")
-    parser.add_argument("--output-dir", "-o", type=str, default=str(PARENT_DIR), help="parent output directory")
+    parser = argparse.ArgumentParser(description="Parallel FCC-hh Runner")
+    parser.add_argument("--output-dir", "-o", type=str, default="./fcc_hh_cuts", help="parent output directory")
     parser.add_argument("--parallel", "-p", type=int, default=PARALLEL, help="number of parallel jobs")
     parser.add_argument("--list", action="store_true", help="only list jobs (don't execute)")
     parser.add_argument("--dry-run", action="store_true", help="show commands without running")
-    parser.add_argument("--skip-makecard", action="store_true", help="skip the final makecard step")
-    parser.add_argument("--skip-sbatch", action="store_true", help="skip the sbatch submission step after makecard")
-    parser.add_argument("--skip-run", action="store_true", help="skip the job execution step")
+    parser.add_argument("--clean-intermediates", action="store_true", help="delete _idx root/log files instead of stashing them")
+    parser.add_argument("--skip-makecard", action="store_true", help="skip makecard step")
+    parser.add_argument("--skip-sbatch", action="store_true", help="skip sbatch submission step")
+    parser.add_argument("--skip-run", action="store_true", help="skip the job execution step (useful for just merging/makecards)")
     args = parser.parse_args()
 
-    print("Output directory set to:", args.output_dir)
-    global MUTAUE_81To101_DIR, ETAUMU_81To101_DIR, MUTAUE_21To81_DIR, ETAUMU_21To81_DIR, STATUS_DIR
+    out_dir_path = Path(args.output_dir)
+    status_dir = out_dir_path / "status"
     
-    # Set the directories based on the output directory
-    MUTAUE_81To101_DIR = Path(args.output_dir) / "hist_mutaue_81To101"
-    ETAUMU_81To101_DIR = Path(args.output_dir) / "hist_etaumu_81To101"
-    MUTAUE_21To81_DIR = Path(args.output_dir) / "hist_mutaue_21To81"
-    ETAUMU_21To81_DIR = Path(args.output_dir) / "hist_etaumu_21To81"
-    
-    # Move the status directory inside the target output directory
-    STATUS_DIR = Path(args.output_dir) / "status"
-
-    ensure_dirs()
-    jobs = build_jobs()
+    jobs = build_jobs(out_dir_path)
 
     if not jobs:
-        print("No jobs to run (check CONFIG).")
+        print("No jobs built. Check configuration.")
         return
 
-    print(f"Built {len(jobs)} jobs. Running with {args.parallel} parallel workers.")
+    print(f"Built {len(jobs)} jobs. Outputting to {args.output_dir}")
+
     if args.list:
         for j in jobs:
-            print("CMD:", " ".join(j.command()), "-> log:", j.log_path())
+            print(f"CMD: {' '.join(j.command())} -> {j.out_root()}")
         return
 
     if args.dry_run:
         for j in jobs:
-            print("DRY:", " ".join(j.command()), "->", j.out_root(), "log:", j.log_path())
+            print(f"DRY RUN: {' '.join(j.command())}")
         if not args.skip_makecard:
-            run_makecard_commands(dry_run=True)
+            run_makecard_commands(args, dry_run=True)
         return
 
     failures = []
     if not args.skip_run:
-        # Reset and initialize the status directory inside args.output_dir
-        if STATUS_DIR.exists():
-            shutil.rmtree(STATUS_DIR)
-        STATUS_DIR.mkdir(parents=True, exist_ok=True)
+        if status_dir.exists():
+            shutil.rmtree(status_dir)
+        status_dir.mkdir(parents=True, exist_ok=True)
         
         for job in jobs:
-            update_job_status(job, "queue")
+            update_job_status(status_dir, job, "queue")
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=args.parallel) as exe:
-            future_to_job = {exe.submit(run_job, job): job for job in jobs}
+            future_to_job = {exe.submit(run_job, job, status_dir): job for job in jobs}
             
             for fut in concurrent.futures.as_completed(future_to_job):
                 job = future_to_job[fut]
                 try:
                     completed_job, rc, out_text = fut.result()
                     
-                    # Calculate live status metrics
-                    n_queue = len(list(STATUS_DIR.glob("*.queue")))
-                    n_run = len(list(STATUS_DIR.glob("*.running")))
-                    n_done = len(list(STATUS_DIR.glob("*.done")))
+                    n_queue = len(list(status_dir.glob("*.queue")))
+                    n_run = len(list(status_dir.glob("*.running")))
+                    n_done = len(list(status_dir.glob("*.done")))
                     
-                    # Print formatted header and job output block
                     print(f"\n{'='*75}")
-                    print(f"[Queue {n_queue}] [Running {n_run}] [Done {n_done}] --- Log for: {job.channel} | {job.name}")
+                    print(f"[Queue {n_queue}] [Running {n_run}] [Done {n_done}] --- Log for: {job.channel_cat} | {job.name}_{job.idx}")
                     print(f"{'='*75}")
                     print(out_text.strip())
-                    print(f"{'-'*75}")
                     
                     if rc != 0:
-                        print(f"-> Job FAILED (rc={rc}): {job.input_path} -> see {job.log_path()}")
+                        print(f"-> FAILED (rc={rc}): {job.input_path}")
                         failures.append((job, rc))
                     else:
-                        print(f"-> Job DONE: {job.input_path} -> {job.out_root()}")
+                        print(f"-> DONE: {job.input_path}")
 
                 except Exception as e:
-                    print(f"Job EXCEPTION for {job.input_path}: {e}")
+                    print(f"EXCEPTION for {job.input_path}: {e}")
                     failures.append((job, -1))
         
-        pipeline_files = [MUTAUE_81To101_PIPELINE, ETAUMU_81To101_PIPELINE, MUTAUE_21To81_PIPELINE, ETAUMU_21To81_PIPELINE]
-        for pf in pipeline_files:
-            dest = Path(args.output_dir) / Path(pf).name
-            try:
-                shutil.copy(pf, dest)
-                print(f"Copied {pf} to {dest}")
-            except Exception as e:
-                print(f"Failed to copy {pf} to {dest}: {e}")
-
-    # Copy the datacards/merge_datacards.py to the parent output directory for later use
-    merge_script = "datacards/merge_datacards.py"
-    dest_merge = Path(args.output_dir) / Path(merge_script).name
-    try:
-        shutil.copy(merge_script, dest_merge)
-        print(f"Copied {merge_script} to {dest_merge}")
-    except Exception as e:
-        print(f"Failed to copy {merge_script} to {dest_merge}: {e}")
+        # Copy pipelines to output for reproducibility
+        for cc, pf in PIPELINES.items():
+            if Path(pf).exists():
+                shutil.copy(pf, out_dir_path / Path(pf).name)
 
     if failures:
-        print(f"\n{len(failures)} jobs failed. Check logs.")
-        print("Skipping makecard step due to failures.")
+        print(f"\n{len(failures)} jobs failed. Check logs. Aborting merge and downstream steps.")
         sys.exit(2)
-    else:
-        print("\nAll processing completed successfully.")
-        if not args.skip_makecard:
-            run_makecard_commands(args)
-        else:
-            print("\nSkipping makecard step as requested.")
         
-        run_sbatch_commands(args)
+    # Execute Merge & Cleanup logic
+    merge_and_cleanup(jobs, out_dir_path, args.clean_intermediates)
+
+    # Downstream processes
+    if not args.skip_makecard:
+        run_makecard_commands(args)
+    
+    run_sbatch_commands(args)
+    
+    # Run Final merge_datacards script
+    merge_script = "datacards/merge_datacards.py"
+    if Path(merge_script).exists():
+        dest_merge = out_dir_path / Path(merge_script).name
+        shutil.copy(merge_script, dest_merge)
         
-        # Run the merge_datacards.py with the option --submit if args.skip_sbatch is False
         cmd = ["python3", "merge_datacards.py"]
         if not args.skip_sbatch:
             cmd.append("--submit")
+            
         print("\nRunning merge_datacards.py with command:", " ".join(cmd))
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True, cwd=args.output_dir)
-            print(result.stdout)
-            if result.stderr:
-                print("--- STDERR ---")
-                print(result.stderr)
+            subprocess.run(cmd, capture_output=True, text=True, check=True, cwd=out_dir_path)
             print("merge_datacards.py completed successfully.")
         except subprocess.CalledProcessError as e:
-            print(f"ERROR: merge_datacards.py failed with exit code {e.returncode}.")
-            print("--- STDOUT ---")
-            print(e.stdout)
-            print("--- STDERR ---")
+            print(f"ERROR: merge_datacards.py failed (rc={e.returncode}).")
             print(e.stderr)
-            sys.exit(4)
-        except FileNotFoundError:
-            print("ERROR: 'merge_datacards.py' not found. Make sure it is in the output directory.")
             sys.exit(4)
 
 if __name__ == "__main__":

@@ -42,6 +42,8 @@ struct Event {
 struct Meta {
     int e_idx = -1;
     int mu_idx = -1;
+    double e_pt = std::numeric_limits<double>::quiet_NaN();
+    double mu_pt = std::numeric_limits<double>::quiet_NaN();
     double m_collinear = std::numeric_limits<double>::quiet_NaN();
     double MET = std::numeric_limits<double>::quiet_NaN();
     int n_jet = -1;

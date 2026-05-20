@@ -13,11 +13,11 @@
 
     "_comment2": "==== Jet Veto ====",
     "jet_pt_min": 30.0,
-    "n_jet": 0,
+    "n_jet": 1,
 
     "_comment3": "==== Lepton PT Cut ====",
-    "mu_pt_cut": 60.0,
-    "e_pt_cut": 10.0,
+    "mu_pt_cut": 10.0,
+    "e_pt_cut": 60.0,
 
     "_comment4": "==== DPhi(MET, lep) Cut ====",
     "max_dphi_lep_met": 0.7
