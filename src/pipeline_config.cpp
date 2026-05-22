@@ -171,6 +171,15 @@ std::vector<HistogramManager::VarSpec> Variables::getDefault() {
         [](const Event& evt, const Meta&) -> double { return evt.d ? (double)evt.d->Jet_size : std::numeric_limits<double>::quiet_NaN(); }
     });
 
+    vars.push_back({
+        "dphi_mu_met", "DeltaPhi(#mu, MET);#Delta#phi(#mu, MET) [rad];Events", 64, 0, M_PI,
+        [](const Event&, const Meta& m) -> double { return m.dphi_mu_met; }
+    });
+    vars.push_back({
+        "dphi_e_met", "DeltaPhi(e, MET);#Delta#phi(e, MET) [rad];Events", 64, 0, M_PI,
+        [](const Event&, const Meta& m) -> double { return m.dphi_e_met; }
+    });
+
     return vars;
 }
 

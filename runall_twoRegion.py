@@ -45,7 +45,9 @@ MASS_RANGES = [200, 300, 450, 600, 750, 900]
 SIGNALS = {
     f"{SIGNAL_TYPE}_{channel}_{mass}": [
         # f"/path/to/ggH/Hmass{mass}/DIR_1/",
-        f"/work/project/physics/psriling/FCC/FCChh/TestEnv/signals/{channel}/M450.root", # Test dir
+        # f"/work/project/physics/psriling/FCC/FCChh/TestEnv/signals/{channel}/M450.root", # Test dir
+        
+        f"/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/signal/{channel}/M{mass}/",
     ]
     for mass in MASS_RANGES for channel in CHANNELS
 }
