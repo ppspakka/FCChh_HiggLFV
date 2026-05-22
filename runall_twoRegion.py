@@ -51,16 +51,70 @@ SIGNALS = {
 }
 
 BACKGROUNDS = {
+    "ttbar": [
+        # Test dir
+        # "/work/project/physics/psriling/FCC/FCChh/TestEnv/backgrounds/ttbar/dir1",
+        # "/work/project/physics/psriling/FCC/FCChh/TestEnv/backgrounds/ttbar/dir2",
+        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/TThvq_leptonic/10Mseed10/',
+        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/TThvq_leptonic/10Mseed20/',
+        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/TThvq_leptonic/10Mseed30/',
+        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/TThvq_leptonic/10Mseed40/',
+        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/TThvq_leptonic/10Mseed50/',
+        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/TThvq_leptonic/5Mseed10/',
+        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/TThvq_leptonic/5Mseed20/',
+        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/TThvq_leptonic/5Mseed30/',
+        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/TThvq_leptonic/5Mseed40/',
+        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/TThvq_leptonic/5Mseed50/',
+    ],
+
+    "tW": [
+        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/ST_tW_topAndAnti-top_5f_inclusiveDecays_powheg/lep_mode/top_5Mseed10/',
+    ],
+
+    "tbarW": [
+        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/ST_tW_topAndAnti-top_5f_inclusiveDecays_powheg/lep_mode/antitop_5Mseed10/',
+    ],
+    
     "DY0j": [
         # Test dir
-        "/work/project/physics/psriling/FCC/FCChh/TestEnv/backgrounds/DY0j/dir1",
-        "/work/project/physics/psriling/FCC/FCChh/TestEnv/backgrounds/DY0j/dir2",
+        # "/work/project/physics/psriling/FCC/FCChh/TestEnv/backgrounds/DY0j/dir1",
+        # "/work/project/physics/psriling/FCC/FCChh/TestEnv/backgrounds/DY0j/dir2",
+        
+        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/DY0Jets_tata/5Mseed100/',
+        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/DY0Jets_tata/5Mseed150/',
     ],
-    "ttbar": [
-        "/work/project/physics/psriling/FCC/FCChh/TestEnv/backgrounds/ttbar/dir1",
-        "/work/project/physics/psriling/FCC/FCChh/TestEnv/backgrounds/ttbar/dir2",
+    
+    "DY1j": [
+        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/DY1Jets_tata/5Mseed100/',
+        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/DY1Jets_tata/5Mseed150/',
+        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/DY1Jets_tata/5Mseed200/',
+    ],
+
+    "WW": [
+        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/WW_llvlvl/1Mseed100/',
+        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/WW_llvlvl/1Mseed110/',
+        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/WW_llvlvl/1Mseed120/',
+        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/WW_llvlvl/1Mseed130/',
+        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/WW_llvlvl/1Mseed140/',
+    ],
+    
+    "SM_ggH_tautau": [
+        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/GluGluHToTauTau_powheg/1M_seed1/',
+    ],
+
+    "SM_ggH_WW": [
+        '/work/project/physics/psriling/FCC/Pythia8Delphes/Filter_ROOT/GluGluHToWW_powheg/1M_seed1/',
+    ],
+
+    "SM_VBFH_tautau": [
+        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/VBF_H_powheg/tata/1M_seed1/',
+    ],
+
+    "SM_VBFH_WW": [
+        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/VBF_H_powheg/WW/1M_seed2/',
     ],
 }
+
 # --------------------------------------------
 
 # Toggle per-category execution if needed (Defaults to globally True based on above)
