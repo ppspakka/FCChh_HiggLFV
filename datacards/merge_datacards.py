@@ -40,7 +40,7 @@ def main():
                     continue
 
                 # Execute combineCards.py with isolated environment and native Python file writing
-                cmd = ["combineCards.py", f"bin0j_1j={card_0j}", f"bin1j_2j={card_1j}"]
+                cmd = ["combineCards.py", f"bin0j={card_0j}", f"bin1j={card_1j}"]
                 with open(card_comb, "w") as f_out:
                     subprocess.run(cmd, env=combine_env, stdout=f_out, check=True)
 

@@ -164,6 +164,9 @@ bool LeptonSelection::apply(const Event& evt, Meta& meta, const Parameters& cfg)
         meta.dphi_e_met = delta_phi(e_phi, met_phi);
     }
 
+    double m_vis = (p4_e + p4_mu).M();
+    meta.m_vis = m_vis;
+
     // collinear mass calculation
     TLorentzVector v_tau_vis = (cfg.mode == 0) ? p4_mu : p4_e; // if mode=0 (etaumu), tau_vis is mu; if mode=1 (mutaue), tau_vis is e
     TLorentzVector v_other = (cfg.mode == 0) ? p4_e : p4_mu; // the other lepton

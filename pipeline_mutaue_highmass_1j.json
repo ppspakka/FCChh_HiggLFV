@@ -20,12 +20,12 @@
     "e_pt_cut": 10.0,
 
     "_comment4": "==== DPhi(MET, lep) Cut ====",
-    "max_dphi_lep_met": 0.2
+    "max_dphi_lep_met": 0.3
   },
   "selections": [
+    { "name": "lepton_selection",     "enabled": true },
     { "name": "jet_veto",            "enabled": true },
     { "name": "jet_categorization",     "enabled": true },
-    { "name": "lepton_selection",     "enabled": true },
     { "name": "lepton_pt_cut",       "enabled": true },
     { "name": "deltaphi_met_lepton",    "enabled": true },
     { "name": "finalstate_nocut",       "enabled": true }

@@ -158,6 +158,14 @@ std::vector<HistogramManager::VarSpec> Variables::getDefault() {
         [](const Event&, const Meta& m) -> double { return m.m_collinear; }
     });
     vars.push_back({
+        "m_vis", "Visible Mass;M_{visible} [GeV];Events", 1400, 0, 1400,
+        [](const Event&, const Meta& m) -> double { return m.m_vis; }
+    });
+    vars.push_back({
+        "m_collinear_half", "Collinear Mass (int);M_{collinear} [GeV];Events", 1400, 0.5, 1400.5,
+        [](const Event&, const Meta& m) -> double { return m.m_collinear; }
+    });
+    vars.push_back({
         "mu_pt", "Muon p_{T};p_{T} [GeV];Events", 100, 0, 500,
         [](const Event&, const Meta& m) -> double { return m.mu_pt; }
     });

@@ -376,7 +376,6 @@ def apply_weights(hist_dict: Dict[str, Dict[str, Any]],
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-
 def plot_target_histogram(signal, background, histname,
                           custom_parameters={},
                           outdir="prefit_histograms",
@@ -389,26 +388,28 @@ def plot_target_histogram(signal, background, histname,
                           ax=None,
                           figsize=(10,6)):
     """
-    Plot one target histogram `histname` given:
-      - signal:    {'signal_file': {'histname': TH1/TH2-like, ...}, ...}
-      - background:{'bkg_file':    {'histname': TH1/TH2-like, ...}, ...}
-    Produces a stacked background and overlaid signal(s). Handles absent inputs.
+    Plot one target histogram `histname` with support for unequal bin edges
+    and optional density scaling.
     """
 
     custom_title = custom_parameters.get('title', None)
     custom_xlabel = custom_parameters.get('xlabel', None)
     custom_ylabel = custom_parameters.get('ylabel', None)
-    custom_colors = custom_parameters.get('colors', {}) # Process: color
-    custom_linestyles = custom_parameters.get('linestyles', {}) # Process: linestyle
+    custom_colors = custom_parameters.get('colors', {})
+    custom_linestyles = custom_parameters.get('linestyles', {})
     y_unit = custom_parameters.get('yunit', 'unit')
     yscale = custom_parameters.get('yscale', 'linear')
     xlim = custom_parameters.get('xlim', None)
     ylim = custom_parameters.get('ylim', None)
     
+    # New parameters for unequal bin handling
+    custom_bin_edges = custom_parameters.get('bin_edges', None)
+    density_scaling = custom_parameters.get('density_scaling', False)
+    ref_bin_width = custom_parameters.get('ref_bin_width', 1.0)
+    
     if yscale not in ['linear', 'log']:
         raise ValueError(f"Invalid yscale '{yscale}'; must be 'linear' or 'log'.")
 
-    # Start plotting setup
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
@@ -425,11 +426,9 @@ def plot_target_histogram(signal, background, histname,
     if ref_hist is None:
         raise ValueError(f"No histogram named '{histname}' found in signal or background inputs.")
 
-    # Guard: this drawer expects 1D
     if hasattr(ref_hist, 'GetNbinsY') and callable(ref_hist.GetNbinsY) and ref_hist.GetNbinsY() > 1 and ref_hist.GetNbinsX() > 1:
         raise ValueError("plot_target_histogram currently supports 1D histograms only.")
 
-    # Metadata extraction
     if custom_title is None:
         custom_title = ref_hist.GetTitle()
     if custom_xlabel is None:
@@ -437,16 +436,44 @@ def plot_target_histogram(signal, background, histname,
     if custom_ylabel is None:
         custom_ylabel = ref_hist.GetYaxis().GetTitle()
 
-    # Get bin edges
+    # Get original bin edges from ROOT histogram
     xa = ref_hist.GetXaxis()
-    nbins = xa.GetNbins()
-    edges = np.array([xa.GetBinLowEdge(i) for i in range(1, nbins+1)] + [xa.GetBinUpEdge(nbins)])
-    bin_width = int(edges[1] - edges[0])
+    orig_nbins = xa.GetNbins()
+    orig_edges = np.array([xa.GetBinLowEdge(i) for i in range(1, orig_nbins+1)] + [xa.GetBinUpEdge(orig_nbins)])
+
+    # Handle custom bin edges
+    if custom_bin_edges is not None:
+        edges = np.array(custom_bin_edges)
+        nbins = len(edges) - 1
+        bin_widths = np.diff(edges)
+    else:
+        edges = orig_edges
+        nbins = orig_nbins
+        bin_widths = np.diff(edges)
 
     def hist_to_arrays(h):
-        contents = np.array([h.GetBinContent(i) for i in range(1, nbins+1)])
-        errors   = np.array([h.GetBinError(i)   for i in range(1, nbins+1)])
-        return contents, errors
+        orig_contents = np.array([h.GetBinContent(i) for i in range(1, orig_nbins+1)])
+        orig_errors   = np.array([h.GetBinError(i)   for i in range(1, orig_nbins+1)])
+        
+        if custom_bin_edges is not None:
+            # Check if rebinning is necessary
+            if orig_nbins == nbins and np.allclose(orig_edges, edges):
+                contents, errors = orig_contents, orig_errors
+            else:
+                orig_centers = 0.5 * (orig_edges[:-1] + orig_edges[1:])
+                contents, _ = np.histogram(orig_centers, bins=edges, weights=orig_contents)
+                vars_, _ = np.histogram(orig_centers, bins=edges, weights=orig_errors**2)
+                errors = np.sqrt(vars_)
+                
+            if density_scaling:
+                # Scale back up to a reference width to keep numbers familiar
+                scale_factors = ref_bin_width / bin_widths
+                return contents * scale_factors, errors * scale_factors
+            else:
+                # Return raw counts
+                return contents, errors
+        
+        return orig_contents, orig_errors
 
     # Prepare backgrounds
     procs = sorted(background.keys()) if background else []
@@ -466,7 +493,7 @@ def plot_target_histogram(signal, background, histname,
         process_colours = {p: cmap(i % 20) for i, p in enumerate(sorted_procs)}
     if process_propernames is None:
         process_propernames = {p: p for p in procs}
-    # Override color
+        
     for p in procs:
         if p in custom_colors:
             process_colours[p] = custom_colors[p]
@@ -501,8 +528,6 @@ def plot_target_histogram(signal, background, histname,
             counts, _ = signals[s]
             used_linestyle = custom_linestyles.get(s, line_styles[i % len(line_styles)])
             if np.all(counts == 0): continue
-            # ax.stairs(counts, edges, label=s, color='black', 
-            #           linewidth=2, linestyle=line_styles[i % len(line_styles)])
             color = custom_colors.get(s, 'black')
             ax.stairs(counts, edges, label=s, color=color,
                       linewidth=2, linestyle=used_linestyle)
@@ -510,7 +535,17 @@ def plot_target_histogram(signal, background, histname,
     # Formatting
     ax.set_xlim(edges[0], edges[-1])
     ax.set_xlabel(custom_xlabel)
-    ax.set_ylabel(f"{custom_ylabel} / {bin_width} {y_unit}")
+    
+    # Dynamic y-axis label based on scaling choice
+    if custom_bin_edges is not None:
+        if density_scaling:
+            ax.set_ylabel(f"{custom_ylabel} / {ref_bin_width} {y_unit}")
+        else:
+            ax.set_ylabel(f"{custom_ylabel} / bin")
+    else:
+        bin_width_val = int(bin_widths[0]) if len(bin_widths) > 0 else 1
+        ax.set_ylabel(f"{custom_ylabel} / {bin_width_val} {y_unit}")
+        
     ax.set_yscale(yscale)
     
     n_entries = len(procs) + len(sig_procs) + (1 if procs else 0)
@@ -519,7 +554,7 @@ def plot_target_histogram(signal, background, histname,
     if xlim is not None: ax.set_xlim(xlim)
     if ylim is not None: ax.set_ylim(ylim)
 
-    # CMS-style label (requires mplhep as 'hep')
+    # CMS-style label (requires mplhep)
     try:
         import mplhep as hep
         title = custom_title if custom_title is not None else histname

@@ -49,6 +49,7 @@ struct Meta {
     double dphi_mu_met = std::numeric_limits<double>::quiet_NaN();
     double dphi_e_met = std::numeric_limits<double>::quiet_NaN();
     int n_jet = -1;
+    double m_vis = std::numeric_limits<double>::quiet_NaN();
 };
 
 } // namespace hlfv

@@ -340,6 +340,8 @@ def run_makecard_commands(args, dry_run: bool = False):
         in_dir = base_out / f"hist_{cc}"
         out_dir = base_out / f"datacards_{cc}"
         
+        cut_type = "lowmass" if "lowmass" in cc else "highmass"
+        
         # Skip if input dir wasn't created or is empty
         if not in_dir.exists() or not any(in_dir.iterdir()):
             continue
@@ -351,7 +353,8 @@ def run_makecard_commands(args, dry_run: bool = False):
             "--in-dir", str(in_dir),
             "--lumi-pb", str(lumi_pb),
             "--out-root", str(out_dir / "merged.root"),
-            "--out-card", str(out_dir)
+            "--out-card", str(out_dir),
+            "--bin-type", cut_type
         ]
 
         print(f"\nRunning makecard for '{cc}':")
