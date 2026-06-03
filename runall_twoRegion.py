@@ -13,6 +13,7 @@ Parallel runner for FCC-hh analysis
 from pathlib import Path
 import subprocess
 import sys
+import os
 import shutil
 import concurrent.futures
 import argparse
@@ -27,8 +28,20 @@ PARALLEL = 4  # Default parallel workers
 
 # Define the channels and categories (Total: 8 combinations)
 CHANNELS = ["mutaue", "etaumu"]
-CATEGORIES = ["lowmass_0j", "lowmass_1j", "highmass_0j", "highmass_1j"]
-CHANNEL_CATS = [f"{ch}_{cat}" for ch in CHANNELS for cat in CATEGORIES]
+# CATEGORIES = ["lowmass_0j", 
+#             #   "lowmass_1j", "highmass_0j", "highmass_1j"
+#               ]
+# CHANNEL_CATS = [f"{ch}_{cat}" for ch in CHANNELS for cat in CATEGORIES]
+
+NON_ORTHO_CUT = ["lowmass", 
+                #  "highmass"
+                 ]
+NJET_MAX = 1
+CHANNEL_CATS = []
+for ch in CHANNELS:
+    for cut in NON_ORTHO_CUT:
+        for nj in range(NJET_MAX + 1):
+            CHANNEL_CATS.append(f"{ch}_{cut}_{nj}j")
 
 # Auto-generate pipeline paths based on naming convention
 PIPELINES = {cc: f"./pipeline_{cc}.json" for cc in CHANNEL_CATS}
@@ -54,67 +67,66 @@ SIGNALS = {
 
 BACKGROUNDS = {
     "ttbar": [
-        # Test dir
-        # "/work/project/physics/psriling/FCC/FCChh/TestEnv/backgrounds/ttbar/dir1",
-        # "/work/project/physics/psriling/FCC/FCChh/TestEnv/backgrounds/ttbar/dir2",
-        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/TThvq_leptonic/10Mseed10/',
-        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/TThvq_leptonic/10Mseed20/',
-        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/TThvq_leptonic/10Mseed30/',
+        # '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/TThvq_leptonic/10Mseed10/',
+        # '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/TThvq_leptonic/10Mseed20/',
+        # '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/TThvq_leptonic/10Mseed30/',
         # '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/TThvq_leptonic/10Mseed40/',
         # '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/TThvq_leptonic/10Mseed50/',
-        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/TThvq_leptonic/5Mseed10/',
-        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/TThvq_leptonic/5Mseed20/',
-        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/TThvq_leptonic/5Mseed30/',
-        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/TThvq_leptonic/5Mseed40/',
+        # '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/TThvq_leptonic/5Mseed10/',
+        # '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/TThvq_leptonic/5Mseed20/',
+        # '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/TThvq_leptonic/5Mseed30/',
+        # '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/TThvq_leptonic/5Mseed40/',
         '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/TThvq_leptonic/5Mseed50/',
     ],
 
-    "tW": [
-        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/ST_tW_topAndAnti-top_5f_inclusiveDecays_powheg/lep_mode/top_5Mseed10/',
-    ],
+    # "tW": [
+    #     '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/ST_tW_topAndAnti-top_5f_inclusiveDecays_powheg/lep_mode/top_5Mseed10/',
+    # ],
 
-    "tbarW": [
-        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/ST_tW_topAndAnti-top_5f_inclusiveDecays_powheg/lep_mode/antitop_5Mseed10/',
-    ],
+    # "tbarW": [
+    #     '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/ST_tW_topAndAnti-top_5f_inclusiveDecays_powheg/lep_mode/antitop_5Mseed10/',
+    # ],
     
-    "DY0j": [
-        # Test dir
-        # "/work/project/physics/psriling/FCC/FCChh/TestEnv/backgrounds/DY0j/dir1",
-        # "/work/project/physics/psriling/FCC/FCChh/TestEnv/backgrounds/DY0j/dir2",
+    # "DY0j": [
+    #     # Test dir
+    #     # "/work/project/physics/psriling/FCC/FCChh/TestEnv/backgrounds/DY0j/dir1",
+    #     # "/work/project/physics/psriling/FCC/FCChh/TestEnv/backgrounds/DY0j/dir2",
         
-        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/DY0Jets_tata/5Mseed100/',
-        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/DY0Jets_tata/5Mseed150/',
-    ],
+    #     '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/DY0Jets_tata/5Mseed100/',
+    #     '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/DY0Jets_tata/5Mseed150/',
+    # ],
     
-    "DY1j": [
-        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/DY1Jets_tata/5Mseed100/',
-        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/DY1Jets_tata/5Mseed150/',
-        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/DY1Jets_tata/5Mseed200/',
-    ],
+    # "DY1j": [
+    #     '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/DY1Jets_tata/5Mseed100/',
+    #     '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/DY1Jets_tata/5Mseed150/',
+    #     '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/DY1Jets_tata/5Mseed200/',
+    # ],
 
-    "WW": [
-        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/WW_llvlvl/1Mseed100/',
-        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/WW_llvlvl/1Mseed110/',
-        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/WW_llvlvl/1Mseed120/',
-        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/WW_llvlvl/1Mseed130/',
-        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/WW_llvlvl/1Mseed140/',
-    ],
+    # "WW": [
+    #     '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/WW_llvlvl/1Mseed100/',
+    #     '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/WW_llvlvl/1Mseed110/',
+    #     '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/WW_llvlvl/1Mseed120/',
+    #     '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/WW_llvlvl/1Mseed130/',
+    #     '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/WW_llvlvl/1Mseed140/',
+    #     '/work/project/physics/psriling/FCC/Pythia8Delphes/Filter_ROOT/WW_llvlvl/5Mseed500/',
+    #     '/work/project/physics/psriling/FCC/Pythia8Delphes/Filter_ROOT/WW_llvlvl/5Mseed600/',
+    # ],
     
-    "SM_ggH_tautau": [
-        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/GluGluHToTauTau_powheg/1M_seed1/',
-    ],
+    # "SM_ggH_tautau": [
+    #     '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/GluGluHToTauTau_powheg/1M_seed1/',
+    # ],
 
-    "SM_ggH_WW": [
-        '/work/project/physics/psriling/FCC/Pythia8Delphes/Filter_ROOT/GluGluHToWW_powheg/1M_seed1/',
-    ],
+    # "SM_ggH_WW": [
+    #     '/work/project/physics/psriling/FCC/Pythia8Delphes/Filter_ROOT/GluGluHToWW_powheg/1M_seed1/',
+    # ],
 
-    "SM_VBFH_tautau": [
-        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/VBF_H_powheg/tata/1M_seed1/',
-    ],
+    # "SM_VBFH_tautau": [
+    #     '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/VBF_H_powheg/tata/1M_seed1/',
+    # ],
 
-    "SM_VBFH_WW": [
-        '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/VBF_H_powheg/WW/1M_seed2/',
-    ],
+    # "SM_VBFH_WW": [
+    #     '/work/project/cms/psriling/FCC_new/Pythia8Delphes/Filter_ROOT/VBF_H_powheg/WW/1M_seed2/',
+    # ],
 }
 
 # --------------------------------------------
@@ -149,8 +161,51 @@ class Job:
         return self.output_dir / f"{self.sample_type}_{self.name}.log"
 
     def command(self) -> List[str]:
-        cpp_arg = f'analyze_pipeline.cpp("{self.input_path}","{self.out_root()}","{self.pipeline}")'
+        # cpp_arg = f'analyze_pipeline.cpp("{self.input_path}","{self.out_root()}","{self.pipeline}")'
+        cpp_arg = f'analyze_pipeline_optimize.cpp("{self.input_path}","{self.out_root()}","{self.pipeline}")'
         return ["root", "-l", "-b", "-q", cpp_arg]
+
+# Setup pipeline by copying from current dir to output dir for reproducibility
+# 1) copy the base pipeline files (ch_cut_0j.json)
+# 2) Build the other jet pipeline by copying and replacing "0j" with e.g. "1j" in the filename and content
+# 3) edit the content from line     "n_jet": 0, to    "n_jet": N for the respective pipeline
+def setup_pipelines(base_out_dir: Path):
+    # Setup base pipelines (0j)
+    for ch in CHANNELS:
+        for cut in NON_ORTHO_CUT:
+            base_name = f"pipeline_{ch}_{cut}_0j.json"
+            src_path = Path(base_name)
+            if not src_path.exists():
+                print(f"ERROR: Base pipeline file '{base_name}' not found.")
+                continue
+            dest_path = base_out_dir / src_path.name
+            shutil.copy(src_path, dest_path)
+            print(f"Copied base pipeline to {dest_path}")
+    
+    # Setup other jet pipelines by copying and modifying the base
+    for ch in CHANNELS:
+        for cut in NON_ORTHO_CUT:
+            for nj in range(1, NJET_MAX + 1):
+                base_name = f"pipeline_{ch}_{cut}_0j.json"
+                new_name = f"pipeline_{ch}_{cut}_{nj}j.json"
+                src_path = base_out_dir / base_name
+                dest_path = base_out_dir / new_name
+                if not src_path.exists():
+                    print(f"ERROR: Base pipeline file '{src_path}' not found for creating '{new_name}'.")
+                    continue
+                shutil.copy(src_path, dest_path)
+                
+                # Modify the content to replace "0j" with "{nj}j" and update n_jet value
+                with open(dest_path, "r") as f:
+                    content = f.read()
+                content = content.replace(f'"{base_name}"', f'"{new_name}"')
+                content = re.sub(r'"n_jet":\s*0', f'"n_jet": {nj}', content)
+                
+                with open(dest_path, "w") as f:
+                    f.write(content)
+                
+                print(f"Created pipeline {dest_path} with n_jet={nj}")
+
 
 
 def update_job_status(status_dir: Path, job: Job, status: str):
@@ -185,7 +240,9 @@ def build_jobs(base_out_dir: Path) -> List[Job]:
                     for idx, path in enumerate(paths):
                         jobs.append(Job(
                             input_path=path, idx=idx, output_dir=out_dir, 
-                            pipeline=PIPELINES[cc], sample_type="signal", 
+                            # pipeline=PIPELINES[cc], sample_type="signal", 
+                            # pipeline in path base_out_dir/PIPELINES[cc] via path.join
+                            pipeline=os.path.join(base_out_dir, PIPELINES[cc]), sample_type="signal",
                             channel_cat=cc, name=sig_name
                         ))
         # Etaumu
@@ -195,7 +252,7 @@ def build_jobs(base_out_dir: Path) -> List[Job]:
                     for idx, path in enumerate(paths):
                         jobs.append(Job(
                             input_path=path, idx=idx, output_dir=out_dir, 
-                            pipeline=PIPELINES[cc], sample_type="signal", 
+                            pipeline=os.path.join(base_out_dir, PIPELINES[cc]), sample_type="signal", 
                             channel_cat=cc, name=sig_name
                         ))
 
@@ -205,7 +262,7 @@ def build_jobs(base_out_dir: Path) -> List[Job]:
                 for idx, path in enumerate(paths):
                     jobs.append(Job(
                         input_path=path, idx=idx, output_dir=out_dir, 
-                        pipeline=PIPELINES[cc], sample_type="background", 
+                        pipeline=os.path.join(base_out_dir, PIPELINES[cc]), sample_type="background", 
                         channel_cat=cc, name=bg_name
                     ))
     return jobs
@@ -340,7 +397,8 @@ def run_makecard_commands(args, dry_run: bool = False):
         in_dir = base_out / f"hist_{cc}"
         out_dir = base_out / f"datacards_{cc}"
         
-        cut_type = "lowmass" if "lowmass" in cc else "highmass"
+        # cut_type = "lowmass" if "lowmass" in cc else "highmass"
+        cut_type = "lowmass"
         
         # Skip if input dir wasn't created or is empty
         if not in_dir.exists() or not any(in_dir.iterdir()):
@@ -444,6 +502,12 @@ def main():
             shutil.rmtree(status_dir)
         status_dir.mkdir(parents=True, exist_ok=True)
         
+        # # Copy pipelines to output for reproducibility
+        # for cc, pf in PIPELINES.items():
+        #     if Path(pf).exists():
+        #         shutil.copy(pf, out_dir_path / Path(pf).name)
+        setup_pipelines(out_dir_path)
+        
         for job in jobs:
             update_job_status(status_dir, job, "queue")
 
@@ -474,10 +538,6 @@ def main():
                     print(f"EXCEPTION for {job.input_path}: {e}")
                     failures.append((job, -1))
         
-        # Copy pipelines to output for reproducibility
-        for cc, pf in PIPELINES.items():
-            if Path(pf).exists():
-                shutil.copy(pf, out_dir_path / Path(pf).name)
 
     if failures:
         print(f"\n{len(failures)} jobs failed. Check logs. Aborting merge and downstream steps.")
@@ -498,7 +558,7 @@ def main():
         dest_merge = out_dir_path / Path(merge_script).name
         shutil.copy(merge_script, dest_merge)
         
-        cmd = ["python3", "merge_datacards.py"]
+        cmd = ["python3", "merge_datacards.py", "--njet-max", str(NJET_MAX)]
         if not args.skip_sbatch:
             cmd.append("--submit")
             
